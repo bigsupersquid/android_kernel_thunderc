@@ -356,8 +356,7 @@ again:
 	return 0;
 }
 
-static inline
-void put_futex_key(int fshared, union futex_key *key)
+static inline void put_futex_key(union futex_key *key)
 {
 	drop_futex_key_refs(key);
 }
@@ -992,7 +991,7 @@ static int futex_wake(u32 __user *uaddr, int fshared, int nr_wake, u32 bitset)
 	}
 
 	spin_unlock(&hb->lock);
-	put_futex_key(fshared, &key);
+	put_futex_key(&key);
 out:
 	return ret;
 }
@@ -1050,8 +1049,8 @@ retry_private:
 		if (!fshared)
 			goto retry_private;
 
-		put_futex_key(fshared, &key2);
-		put_futex_key(fshared, &key1);
+		put_futex_key(&key2);
+		put_futex_key(&key1);
 		goto retry;
 	}
 
@@ -1081,9 +1080,9 @@ retry_private:
 
 	double_unlock_hb(hb1, hb2);
 out_put_keys:
-	put_futex_key(fshared, &key2);
+	put_futex_key(&key2);
 out_put_key1:
-	put_futex_key(fshared, &key1);
+	put_futex_key(&key1);
 out:
 	return ret;
 }
@@ -1304,8 +1303,8 @@ retry_private:
 			if (!fshared)
 				goto retry_private;
 
-			put_futex_key(fshared, &key2);
-			put_futex_key(fshared, &key1);
+			put_futex_key(&key2);
+			put_futex_key(&key1);
 			goto retry;
 		}
 		if (curval != *cmpval) {
@@ -1345,8 +1344,8 @@ retry_private:
 			break;
 		case -EFAULT:
 			double_unlock_hb(hb1, hb2);
-			put_futex_key(fshared, &key2);
-			put_futex_key(fshared, &key1);
+			put_futex_key(&key2);
+			put_futex_key(&key1);
 			ret = fault_in_user_writeable(uaddr2);
 			if (!ret)
 				goto retry;
@@ -1354,8 +1353,8 @@ retry_private:
 		case -EAGAIN:
 			/* The owner was exiting, try again. */
 			double_unlock_hb(hb1, hb2);
-			put_futex_key(fshared, &key2);
-			put_futex_key(fshared, &key1);
+			put_futex_key(&key2);
+			put_futex_key(&key1);
 			cond_resched();
 			goto retry;
 		default:
@@ -1437,9 +1436,9 @@ out_unlock:
 		drop_futex_key_refs(&key1);
 
 out_put_keys:
-	put_futex_key(fshared, &key2);
+	put_futex_key(&key2);
 out_put_key1:
-	put_futex_key(fshared, &key1);
+	put_futex_key(&key1);
 out:
 	if (pi_state != NULL)
 		free_pi_state(pi_state);
@@ -1575,7 +1574,7 @@ static void unqueue_me_pi(struct futex_q *q)
  * private futexes.
  */
 static int fixup_pi_state_owner(u32 __user *uaddr, struct futex_q *q,
-				struct task_struct *newowner, int fshared)
+				struct task_struct *newowner)
 {
 	u32 newtid = task_pid_vnr(newowner) | FUTEX_WAITERS;
 	struct futex_pi_state *pi_state = q->pi_state;
@@ -1681,7 +1680,6 @@ static long futex_wait_restart(struct restart_block *restart);
 /**
  * fixup_owner() - Post lock pi_state and corner case management
  * @uaddr:	user address of the futex
- * @fshared:	whether the futex is shared (1) or not (0)
  * @q:		futex_q (contains pi_state and access to the rt_mutex)
  * @locked:	if the attempt to take the rt_mutex succeeded (1) or not (0)
  *
@@ -1694,8 +1692,7 @@ static long futex_wait_restart(struct restart_block *restart);
  *  0 - success, lock not taken
  * <0 - on error (-EFAULT)
  */
-static int fixup_owner(u32 __user *uaddr, int fshared, struct futex_q *q,
-		       int locked)
+static int fixup_owner(u32 __user *uaddr, struct futex_q *q, int locked)
 {
 	struct task_struct *owner;
 	int ret = 0;
@@ -1706,7 +1703,7 @@ static int fixup_owner(u32 __user *uaddr, int fshared, struct futex_q *q,
 		 * did a lock-steal - fix up the PI-state in that case:
 		 */
 		if (q->pi_state->owner != current)
-			ret = fixup_pi_state_owner(uaddr, q, current, fshared);
+			ret = fixup_pi_state_owner(uaddr, q, current);
 		goto out;
 	}
 
@@ -1733,7 +1730,7 @@ static int fixup_owner(u32 __user *uaddr, int fshared, struct futex_q *q,
 		 * lock. Fix the state up.
 		 */
 		owner = rt_mutex_owner(&q->pi_state->pi_mutex);
-		ret = fixup_pi_state_owner(uaddr, q, owner, fshared);
+		ret = fixup_pi_state_owner(uaddr, q, owner);
 		goto out;
 	}
 
@@ -1852,7 +1849,7 @@ retry_private:
 		if (!fshared)
 			goto retry_private;
 
-		put_futex_key(fshared, &q->key);
+		put_futex_key(&q->key);
 		goto retry;
 	}
 
@@ -1863,7 +1860,7 @@ retry_private:
 
 out:
 	if (ret)
-		put_futex_key(fshared, &q->key);
+		put_futex_key(&q->key);
 	return ret;
 }
 
@@ -2013,7 +2010,7 @@ retry_private:
 			 * exit to complete.
 			 */
 			queue_unlock(&q, hb);
-			put_futex_key(fshared, &q.key);
+			put_futex_key(&q.key);
 			cond_resched();
 			goto retry;
 		default:
@@ -2043,7 +2040,7 @@ retry_private:
 	 * Fixup the pi_state owner and possibly acquire the lock if we
 	 * haven't already.
 	 */
-	res = fixup_owner(uaddr, fshared, &q, !ret);
+	res = fixup_owner(uaddr, &q, !ret);
 	/*
 	 * If fixup_owner() returned an error, proprogate that.  If it acquired
 	 * the lock, clear our -ETIMEDOUT or -EINTR.
@@ -2067,7 +2064,7 @@ out_unlock_put_key:
 	queue_unlock(&q, hb);
 
 out_put_key:
-	put_futex_key(fshared, &q.key);
+	put_futex_key(&q.key);
 out:
 	if (to)
 		destroy_hrtimer_on_stack(&to->timer);
@@ -2083,7 +2080,7 @@ uaddr_faulted:
 	if (!fshared)
 		goto retry_private;
 
-	put_futex_key(fshared, &q.key);
+	put_futex_key(&q.key);
 	goto retry;
 }
 
@@ -2165,14 +2162,14 @@ retry:
 
 out_unlock:
 	spin_unlock(&hb->lock);
-	put_futex_key(fshared, &key);
+	put_futex_key(&key);
 
 out:
 	return ret;
 
 pi_faulted:
 	spin_unlock(&hb->lock);
-	put_futex_key(fshared, &key);
+	put_futex_key(&key);
 
 	ret = fault_in_user_writeable(uaddr);
 	if (!ret)
@@ -2343,8 +2340,7 @@ static int futex_wait_requeue_pi(u32 __user *uaddr, int fshared,
 		 */
 		if (q.pi_state && (q.pi_state->owner != current)) {
 			spin_lock(q.lock_ptr);
-			ret = fixup_pi_state_owner(uaddr2, &q, current,
-						   fshared);
+			ret = fixup_pi_state_owner(uaddr2, &q, current);
 			spin_unlock(q.lock_ptr);
 		}
 	} else {
@@ -2363,7 +2359,7 @@ static int futex_wait_requeue_pi(u32 __user *uaddr, int fshared,
 		 * Fixup the pi_state owner and possibly acquire the lock if we
 		 * haven't already.
 		 */
-		res = fixup_owner(uaddr2, fshared, &q, !ret);
+		res = fixup_owner(uaddr2, &q, !ret);
 		/*
 		 * If fixup_owner() returned an error, proprogate that.  If it
 		 * acquired the lock, clear -ETIMEDOUT or -EINTR.
@@ -2394,9 +2390,9 @@ static int futex_wait_requeue_pi(u32 __user *uaddr, int fshared,
 	}
 
 out_put_keys:
-	put_futex_key(fshared, &q.key);
+	put_futex_key(&q.key);
 out_key2:
-	put_futex_key(fshared, &key2);
+	put_futex_key(&key2);
 
 out:
 	if (to) {
