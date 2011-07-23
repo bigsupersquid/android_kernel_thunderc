@@ -647,10 +647,13 @@ static int  android_bind(struct usb_composite_dev *cdev)
 			device_desc.bDeviceSubClass      = 0x00;
 			device_desc.bDeviceProtocol      = 0x00;
 			break;
-		case 2 : /* ECM Class --> USB_CLASS_MISC */
-			device_desc.bDeviceClass         = USB_CLASS_MISC;
-			device_desc.bDeviceSubClass      = 0x02;
-			device_desc.bDeviceProtocol      = 0x01;
+		case 2 : /* ECM Class --> USB_CLASS_COMM, Windows will ignore this
+			  * in favor of the first interface, which we've ensured will
+			  * be the RNDIS one.  LAME.
+			  */
+			device_desc.bDeviceClass         = USB_CLASS_COMM;
+			device_desc.bDeviceSubClass      = 0x06;
+			device_desc.bDeviceProtocol      = 0x00;
 			break;
 		default: /* Others */
 			device_desc.bDeviceClass         = USB_CLASS_PER_INTERFACE;
