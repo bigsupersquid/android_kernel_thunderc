@@ -1,31 +1,36 @@
-39:
-	Extremely aggressive process scheduler tweaks.  Let's see how
-	stability and battery life go.
-41:
-	Default clock speed is now 245-600MHz. Overclocking is still
-	available for those who want to live on the edge.
+v3:	isx005: Fix exposure compensation.
+	bcm4325: disable wakeup irq when device sleeps
+	bcm4325: switch to PM_FAST
+	bcm4325: Force powersave mode.
+	sched: Back off on the timeslice size just a bit.
 
-49: (839ea0ea8a83b82d23635e05b51741a3)
-	enable fair_sleepers again 
-50:    
-	Include ext3fs, and compile all extfs stuff in kernel
-	Exclude ext[234]fs extended attribute support
-53:
-	First pass at USB tethering by disabling proprietary cable detection
-	This should also fix the occasional charging problem
-63:
-	Fix USB tethering for XP
-	Disable autorun
-r1:
-	Change versioning scheme
-	Fix USB charging:
-	  - Now we request 500mA, not 2mA on proper USB devices
-	  - We 'request' 10mA on wall adapters masquerading as USB devices
-	Use MEID for the USB HOST MAC address
-r2:
-        Pulled in assorted changes/fixes from CAF.
+r2:	Pulled in assorted changes/fixes from CAF.
         Pulled in assorted changes/fixes from 2.6.35.
         Pulled in assorted changes/fixes from 2.6.38.
         Pulled in new jhash implementation.
 	https://patchwork.kernel.org/patch/148421/ / http://www.gossamer-threads.com/lists/linux/kernel/1273183
 	https://patchwork.kernel.org/patch/148411/ / http://www.gossamer-threads.com/lists/linux/kernel/1270185
+
+r1:	Change versioning scheme
+	Fix USB charging:
+	  - Now we request 500mA, not 2mA on proper USB devices
+	  - We 'request' 10mA on wall adapters masquerading as USB devices
+	Use MEID for the USB HOST MAC address
+
+63:	Fix USB tethering for XP
+	Disable autorun
+
+53:	First pass at USB tethering by disabling proprietary cable detection
+	This should also fix the occasional charging problem
+
+50:     Include ext3fs, and compile all extfs stuff in kernel
+	Exclude ext[234]fs extended attribute support
+
+49:	(839ea0ea8a83b82d23635e05b51741a3)
+	enable fair_sleepers again 
+
+41:	Default clock speed is now 245-600MHz. Overclocking is still
+	available for those who want to live on the edge.
+
+39:	Extremely aggressive process scheduler tweaks.  Let's see how
+	stability and battery life go.
