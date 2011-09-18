@@ -1,3 +1,5 @@
+v3a:	Removed: Headset button fix
+
 v3:	isx005: Fix exposure compensation.
 	bcm4325: disable wakeup irq when device sleeps
 	bcm4325: switch to PM_FAST
