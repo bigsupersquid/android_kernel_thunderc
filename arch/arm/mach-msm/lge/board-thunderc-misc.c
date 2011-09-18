@@ -428,11 +428,9 @@ static int thunderc_gpio_earsense_work_func(void)
 			gpio_value?"injected":"ejected");
 	if (gpio_value == EAR_EJECT) {
 		state = EAR_STATE_EJECT;
-		gpio_set_value(GPIO_HS_MIC_BIAS_EN, 0);
 			hookmsg.args.mode = cpu_to_be32(0);
 	} else {
 		state = EAR_STATE_INJECT;
-		gpio_set_value(GPIO_HS_MIC_BIAS_EN, 1);
 			hookmsg.args.mode = cpu_to_be32(1);
 	}
 

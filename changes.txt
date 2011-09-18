@@ -3,6 +3,7 @@ v3:	isx005: Fix exposure compensation.
 	bcm4325: switch to PM_FAST
 	bcm4325: Force powersave mode.
 	sched: Back off on the timeslice size just a bit.
+	Headset button fix : https://github.com/jawz101/LG-P500-2.6.35-re-write/commit/6a92306bbc4293b94936b4cc56a29a7f590d7a94
 
 r2:	Pulled in assorted changes/fixes from CAF.
         Pulled in assorted changes/fixes from 2.6.35.
