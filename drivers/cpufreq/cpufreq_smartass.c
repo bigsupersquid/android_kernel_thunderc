@@ -123,7 +123,7 @@ static unsigned int sample_rate_jiffies;
  * Freqeuncy delta when ramping up.
  * zero disables and causes to always jump straight to max frequency.
  */
-#define DEFAULT_RAMP_UP_STEP 80000
+#define DEFAULT_RAMP_UP_STEP 256000
 static unsigned int ramp_up_step;
 
 /*
@@ -136,13 +136,13 @@ static unsigned int ramp_down_step;
 /*
  * CPU freq will be increased if measured load > max_cpu_load;
  */
-#define DEFAULT_MAX_CPU_LOAD 60
+#define DEFAULT_MAX_CPU_LOAD 50
 static unsigned long max_cpu_load;
 
 /*
  * CPU freq will be decreased if measured load < min_cpu_load;
  */
-#define DEFAULT_MIN_CPU_LOAD 30
+#define DEFAULT_MIN_CPU_LOAD 25
 static unsigned long min_cpu_load;
 
 
