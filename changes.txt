@@ -1,3 +1,7 @@
+v3.2:	
+
+v3.1:	Replaced Smartass and Interactive governors with Smartass2 and InteractiveX governors
+
 v3a:	Removed: Headset button fix
 
 v3:	isx005: Fix exposure compensation.
