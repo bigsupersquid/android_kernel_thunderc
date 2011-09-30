@@ -122,12 +122,6 @@ struct futex_q {
 	u32 bitset;
 };
 
-static const struct futex_q futex_q_init = {
-	/* list gets initialized in queue_me()*/
-	.key = FUTEX_KEY_INIT,
-	.bitset = FUTEX_BITSET_MATCH_ANY
-};
-
 /*
  * Hash buckets are shared by all the futex_keys that hash to the same
  * location.  Each key may have multiple futex_q structures, one for each task
@@ -224,7 +218,7 @@ get_futex_key(u32 __user *uaddr, int fshared, union futex_key *key)
 {
 	unsigned long address = (unsigned long)uaddr;
 	struct mm_struct *mm = current->mm;
-	struct page *page, *page_head;
+	struct page *page;
 	int err;
 	struct vm_area_struct *vma;
 
@@ -288,46 +282,11 @@ again:
 	if (err < 0)
 		return err;
 
-#ifdef CONFIG_TRANSPARENT_HUGEPAGE
-	page_head = page;
-	if (unlikely(PageTail(page))) {
+	page = compound_head(page);
+	lock_page(page);
+	if (!page->mapping) {
+		unlock_page(page);
 		put_page(page);
-		/* serialize against __split_huge_page_splitting() */
-		local_irq_disable();
-		if (likely(__get_user_pages_fast(address, 1, 1, &page) == 1)) {
-			page_head = compound_head(page);
-			/*
-			 * page_head is valid pointer but we must pin
-			 * it before taking the PG_lock and/or
-			 * PG_compound_lock. The moment we re-enable
-			 * irqs __split_huge_page_splitting() can
-			 * return and the head page can be freed from
-			 * under us. We can't take the PG_lock and/or
-			 * PG_compound_lock on a page that could be
-			 * freed from under us.
-			 */
-			if (page != page_head) {
-				get_page(page_head);
-				put_page(page);
-			}
-			local_irq_enable();
-		} else {
-			local_irq_enable();
-			goto again;
-		}
-	}
-#else
-	page_head = compound_head(page);
-	if (page != page_head) {
-		get_page(page_head);
-		put_page(page);
-	}
-#endif
-
-	lock_page(page_head);
-	if (!page_head->mapping) {
-		unlock_page(page_head);
-		put_page(page_head);
 		goto again;
 	}
 
@@ -338,20 +297,20 @@ again:
 	 * it's a read-only handle, it's expected that futexes attach to
 	 * the object not the particular process.
 	 */
-	if (PageAnon(page_head)) {
+	if (PageAnon(page)) {
 		key->both.offset |= FUT_OFF_MMSHARED; /* ref taken on mm */
 		key->private.mm = mm;
 		key->private.address = address;
 	} else {
 		key->both.offset |= FUT_OFF_INODE; /* inode-based key */
-		key->shared.inode = page_head->mapping->host;
-		key->shared.pgoff = page_head->index;
+		key->shared.inode = page->mapping->host;
+		key->shared.pgoff = page->index;
 	}
 
 	get_futex_key_refs(key);
 
-	unlock_page(page_head);
-	put_page(page_head);
+	unlock_page(page);
+	put_page(page);
 	return 0;
 }
 
@@ -863,9 +822,6 @@ static int wake_futex_pi(u32 __user *uaddr, u32 uval, struct futex_q *this)
 	 * pending owner did not enqueue itself back on the rt_mutex.
 	 * Thats not a tragedy. We know that way, that a lock waiter
 	 * is on the fly. We make the futex_q waiter the pending owner.
-	 * It is possible that the next waiter (the one that brought
-	 * this owner to the kernel) timed out and is no longer
-	 * waiting on the lock.
 	 */
 	if (!new_owner)
 		new_owner = this->task;
@@ -1834,6 +1790,7 @@ static int futex_wait_setup(u32 __user *uaddr, u32 val, int fshared,
 	 * rare, but normal.
 	 */
 retry:
+	q->key = FUTEX_KEY_INIT;
 	ret = get_futex_key(uaddr, fshared, &q->key);
 	if (unlikely(ret != 0))
 		return ret;
@@ -1874,12 +1831,16 @@ static int futex_wait(u32 __user *uaddr, int fshared,
 	struct hrtimer_sleeper timeout, *to = NULL;
 	struct restart_block *restart;
 	struct futex_hash_bucket *hb;
-	struct futex_q q = futex_q_init;
+	struct futex_q q;
 	int ret;
 
 	if (!bitset)
 		return -EINVAL;
+
+	q.pi_state = NULL;
 	q.bitset = bitset;
+	q.rt_waiter = NULL;
+	q.requeue_pi_key = NULL;
 
 	if (abs_time) {
 		to = &timeout;
@@ -1977,7 +1938,7 @@ static int futex_lock_pi(u32 __user *uaddr, int fshared,
 {
 	struct hrtimer_sleeper timeout, *to = NULL;
 	struct futex_hash_bucket *hb;
-	struct futex_q q = futex_q_init;
+	struct futex_q q;
 	int res, ret;
 
 	if (refill_pi_state_cache())
@@ -1991,7 +1952,11 @@ static int futex_lock_pi(u32 __user *uaddr, int fshared,
 		hrtimer_set_expires(&to->timer, *time);
 	}
 
+	q.pi_state = NULL;
+	q.rt_waiter = NULL;
+	q.requeue_pi_key = NULL;
 retry:
+	q.key = FUTEX_KEY_INIT;
 	ret = get_futex_key(uaddr, fshared, &q.key);
 	if (unlikely(ret != 0))
 		goto out;
@@ -2279,8 +2244,8 @@ static int futex_wait_requeue_pi(u32 __user *uaddr, int fshared,
 	struct rt_mutex_waiter rt_waiter;
 	struct rt_mutex *pi_mutex = NULL;
 	struct futex_hash_bucket *hb;
-	union futex_key key2 = FUTEX_KEY_INIT;
-	struct futex_q q = futex_q_init;
+	union futex_key key2;
+	struct futex_q q;
 	int res, ret;
 
 	if (!bitset)
@@ -2302,10 +2267,12 @@ static int futex_wait_requeue_pi(u32 __user *uaddr, int fshared,
 	debug_rt_mutex_init_waiter(&rt_waiter);
 	rt_waiter.task = NULL;
 
+	key2 = FUTEX_KEY_INIT;
 	ret = get_futex_key(uaddr2, fshared, &key2);
 	if (unlikely(ret != 0))
 		goto out;
 
+	q.pi_state = NULL;
 	q.bitset = bitset;
 	q.rt_waiter = &rt_waiter;
 	q.requeue_pi_key = &key2;

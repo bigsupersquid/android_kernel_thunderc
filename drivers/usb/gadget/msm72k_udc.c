@@ -390,24 +390,11 @@ static int usb_get_max_power(struct usb_info *ui)
 	if (temp == USB_CHG_TYPE__INVALID)
 		return -ENODEV;
 
-	if (temp == USB_CHG_TYPE__WALLCHARGER) {
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
-		return 700; // Magic number or real limitation??
-#else
+	if (temp == USB_CHG_TYPE__WALLCHARGER)
 		return USB_WALLCHARGER_CHG_CURRENT;
-#endif
-}
 
-	if (suspended || !configured) {
-#if defined(CONFIG_MACH_MSM7X27_THUNDERC_SPRINT)
-		/* Not sure why this is needed.
-		   Is ten a magic value for the RPC server?
-		   Is it applicable to other thunderc boards? */
-		return 10;
-#else
+	if (suspended || !configured)
 		return 0;
-#endif
-	}
 
 	return bmaxpow;
 }
@@ -471,7 +458,7 @@ static void usb_chg_detect(struct work_struct *w)
 
 	if (pre_chg_type == temp)
 	{
-		pr_debug("%s: skip re-usb_chg_detect pre: %d cur: %d\n", __func__, pre_chg_type, temp);
+		pr_debug("%s: skip re-usb_chg_detect pre: %d cur: %d\r\n", __func__, pre_chg_type, temp);
 		goto skip;
 	}
 	else
@@ -570,7 +557,7 @@ static void usb_chg_detect(struct work_struct *w)
 	
 	if (temp == USB_CHG_TYPE__SDP)
 	{
-		pr_info("%s: try to re-usb_chg_detect after 5 seconds \n", __func__);
+		pr_info("%s: try to re-usb_chg_detect after 5 seconds \r\n", __func__);
 		schedule_delayed_work(&ui->chg_det, 5 * USB_CHG_DET_DELAY);
 	}
 #endif

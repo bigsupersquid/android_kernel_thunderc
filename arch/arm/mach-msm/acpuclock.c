@@ -450,7 +450,7 @@ static void acpuclk_set_div(const struct clkctl_acpu_speed *hunt_s) {
 		writel(hunt_s->a11clk_khz/19200, PLLn_L_VAL(0));
 		udelay(50);
 	}
-	// OC HACK end	
+	// OC HACK end
 
 	/*
 	 * If the new clock divider is higher than the previous, then

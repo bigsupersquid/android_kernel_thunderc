@@ -88,7 +88,7 @@ static int __cpuinit msm_cpufreq_init(struct cpufreq_policy *policy)
 static struct freq_attr *msm_cpufreq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
 	NULL,
-};
+	};
 
 static struct cpufreq_driver msm_cpufreq_driver = {
 	/* lps calculations are handled here. */
