@@ -229,7 +229,7 @@ config CPU_FREQ_GOV_INTERACTIVEX
 	help
 	  'InteractiveX' - Modified version of interactive with sleep+wake code.
 
-	If in doubt, say Y.
+	If in doubt, say N.
 
 config CPU_FREQ_GOV_SMARTASS2
 	tristate "'smartass2' cpufreq governor"
@@ -237,7 +237,7 @@ config CPU_FREQ_GOV_SMARTASS2
 	help
 	  'Smartass2' - a slighly more aggressive smartass governor
 
-	If in doubt, say Y.
+	If in doubt, say N.
 
 config CPU_FREQ_GOV_SMARTASS
 	tristate "'smartass' cpufreq governor"
