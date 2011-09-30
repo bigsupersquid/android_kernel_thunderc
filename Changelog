@@ -1,0 +1,28 @@
+v9:	Replaced Smartass and Interactive governors with Smartass2 and InteractiveX
+
+v8:	OverClocking: Removed top scale
+	Update: futex compound knowledge
+	Added: futex_q static initializer 
+
+v7:	Video Drivers: reverted
+	Over Clocking: Added two more
+	Battery: Enabled charging on wall chargers that ID as "USB" devises
+	WiFi: Force Powersave Mode
+	WiFi: Disable wakeup IRQ when devise sleeps 
+
+v6:	Optimized
+	Video Drivers: changed 
+
+v5:	Fixed: Overclocking scaling
+	Added: Interactive and Smartass governors
+	Changed: video drivers
+
+v4:	Make Over Clocking show up in CM settings
+
+v3:	Fixed: Over Clocking
+	Switch: to TCP-Westwood 
+
+v2:	Added: Over Clocking
+	Removed: No physical keyboard 
+
+v1:	Orginal IHO kernel
