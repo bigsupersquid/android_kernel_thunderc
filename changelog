@@ -1,0 +1,17 @@
+v6:	Replaced Smartass and Interactive governors with Smartass2 and InteractiveX
+
+v5:	Fixed: Camera - Invert Issue
+	Added: One more OverClocking scale
+
+v4:	Optimized
+	Changed: video drivers
+
+v3:	Fixed: Overclocking scaling
+	Changed: video drivers 
+
+v2:	Added: Over Clocking
+	Added: Interactive and Smartass governors
+	Removed: No physical keyboard
+	Switch: to TCP-Westwood 
+
+v1:	Original IHO kernel
