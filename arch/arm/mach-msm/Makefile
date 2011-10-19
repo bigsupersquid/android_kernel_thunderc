@@ -1,5 +1,3 @@
-obj-y = board-swift-headset.o
-obj-m = board-swift-headset.o
 obj-y += io.o dma.o memory.o
 obj-y += clock.o
 obj-y += modem_notifier.o
