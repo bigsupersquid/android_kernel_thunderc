@@ -149,7 +149,7 @@ static struct notifier_block vfp_notifier_block = {
  * Raise a SIGFPE for the current process.
  * sicode describes the signal being raised.
  */
-static void vfp_raise_sigfpe(unsigned int sicode, struct pt_regs *regs)
+void vfp_raise_sigfpe(unsigned int sicode, struct pt_regs *regs)
 {
 	siginfo_t info;
 
@@ -201,8 +201,12 @@ static void vfp_raise_exceptions(u32 exceptions, u32 inst, u32 fpscr, struct pt_
 	 * Comparison instructions always return at least one of
 	 * these flags set.
 	 */
-	if (exceptions & (FPSCR_N|FPSCR_Z|FPSCR_C|FPSCR_V))
-		fpscr &= ~(FPSCR_N|FPSCR_Z|FPSCR_C|FPSCR_V);
+	/* Qualcomm's patch
+	 * fix floating point problem
+	 * 2010-08-06, cleaneye.kim@lge.com
+	 */
+	if (exceptions & (FPSCR_N | FPSCR_Z | FPSCR_C | FPSCR_V))
+		fpscr &= ~(FPSCR_N | FPSCR_Z | FPSCR_C | FPSCR_V);
 
 	fpscr |= exceptions;
 

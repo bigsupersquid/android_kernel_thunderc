@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/include/mach/board_thunderc.h
  * Copyright (C) 2009 LGE, Inc.
- * Author: SungEun Kim
+ * Author: SungEun Kim <cleaneye@lge.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -50,8 +50,8 @@
 #define GPIO_CAM_PWDN		 		1		/* GPIO_1 */
 #define GPIO_CAM_MCLK				15		/* GPIO_15 */
 
-#define CAMERA_POWER_ON				0
-#define CAMERA_POWER_OFF			1
+#define CAM_POWER_OFF				0
+#define CAM_POWER_ON				1
 
 //int aat2870_camera_power_ctrl(int on_off);
 #define LDO_CAM_AVDD_NO		2	/* 2.7V */
@@ -81,17 +81,18 @@
 
 /* ear sense driver macros */
 #define GPIO_EAR_SENSE		29
+#define GPIO_HS_MIC_BIAS_EN	26
 
 /* lcd & backlight */
-#define GPIO_LCD_BL_EN         82
-#define GPIO_BL_I2C_SCL                88
-#define GPIO_BL_I2C_SDA                89
-#define GPIO_LCD_VSYNC_O       97
-#define GPIO_LCD_MAKER_LOW     101
-#define GPIO_LCD_RESET_N       102
+#define GPIO_LCD_BL_EN		82
+#define GPIO_BL_I2C_SCL		88
+#define GPIO_BL_I2C_SDA		89
+#define GPIO_LCD_VSYNC_O	97
+#define GPIO_LCD_MAKER_LOW	101
+#define GPIO_LCD_RESET_N	102
 
-#define BL_POWER_SUSPEND       0
-#define BL_POWER_RESUME        1
+#define BL_POWER_SUSPEND	0
+#define BL_POWER_RESUME		1
 
 /* bluetooth gpio pin */
 enum {
@@ -124,5 +125,4 @@ void camera_power_mutex_unlock(void);
 
 struct device* thunderc_backlight_dev(void);
 void thunderc_pwrsink_resume(void);
-int camera_status(void);
 #endif

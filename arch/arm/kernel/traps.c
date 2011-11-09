@@ -254,7 +254,7 @@ static void __die(const char *str, int err, struct thread_info *thread, struct p
 	}
 }
 
-static DEFINE_SPINLOCK(die_lock);
+DEFINE_SPINLOCK(die_lock);
 
 /*
  * This function is protected against re-entrancy.

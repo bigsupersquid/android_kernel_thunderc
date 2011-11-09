@@ -30,9 +30,17 @@
 
 #define mtp_err(fmt, arg...)	printk(KERN_ERR "%s(): " fmt, __func__, ##arg)
 #ifdef DEBUG
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
+#define lg_mtp_debug(fmt, arg...)	printk(KERN_ERR "%s(): " fmt, __func__, ##arg)
+#define mtp_debug(fmt, arg...)
+#else
 #define mtp_debug(fmt, arg...)	printk(KERN_ERR "%s(): " fmt, __func__, ##arg)
+#endif
 #else
 #define mtp_debug(fmt, arg...)
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
+#define lg_mtp_debug(fmt, arg...)
+#endif
 #endif
 
 #define BULK_BUFFER_SIZE    16 * 1024
@@ -227,6 +235,9 @@ __u8 g_bRequest= MTP_NO_INIT_STATUS;
 #define USB_MTP_FUNC_IOC_CONTROL_REQUEST_GET _IOW(USB_MTP_IOC_MAGIC, 0x29, int)
 #endif
 
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
+static int cancel_noti = 0;
+#endif
 /*-------------------------------------------------------------------------*/
 
 static struct usb_request *req_new(struct usb_ep *ep, int size)
@@ -334,7 +345,12 @@ static void mtp_out_complete(struct usb_ep *ep, struct usb_request *req)
 		req->status, req, req->actual);
 		g_usb_mtp_context.error = 1;
 		if (req->status == -ECONNRESET)
-			usb_ep_fifo_flush(ep);
+		{
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
+		  lg_mtp_debug("LG_FW : BULK OUT DATA Flush!!\n");
+#endif
+		  usb_ep_fifo_flush(ep);
+		}
 		req_put(&g_usb_mtp_context.rx_reqs, req);
 	}
 	wake_up(&g_usb_mtp_context.rx_wq);
@@ -369,7 +385,11 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 		}
 		/* we will block until we're online */
 		ret = wait_event_interruptible(g_usb_mtp_context.rx_wq,
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
+			((g_usb_mtp_context.online || g_usb_mtp_context.cancel) && !cancel_noti));
+#else
 			(g_usb_mtp_context.online || g_usb_mtp_context.cancel));
+#endif
 		if (g_usb_mtp_context.cancel) {
 			mtp_debug("cancel return in mtp_read at beginning\n");
 			g_usb_mtp_context.cancel = 0;
@@ -398,6 +418,9 @@ requeue_req:
 				req_put(&g_usb_mtp_context.rx_reqs, req);
 				return ret;
 			}
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
+			  lg_mtp_debug("LG_FW : MTP Enqeue Data!!\n");
+#endif
 		}
 
 		/* if we have data pending, give it to userspace */
@@ -406,12 +429,21 @@ requeue_req:
 				xfer = g_usb_mtp_context.data_len;
 			else
 				xfer = count;
-
+			
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
+        if(cancel_noti == 0)
+        {
+#endif
 			if (copy_to_user(buf, g_usb_mtp_context.read_buf,
 								xfer)) {
 				rc = -EFAULT;
 				break;
 			}
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
+		  lg_mtp_debug("LG_FW : MTP data Copy to User Do!!\n");
+        }
+#endif
+
 			g_usb_mtp_context.read_buf += xfer;
 			g_usb_mtp_context.data_len -= xfer;
 			buf += xfer;
@@ -420,7 +452,9 @@ requeue_req:
 
 			/* if we've emptied the buffer, release the request */
 			if (g_usb_mtp_context.data_len == 0) {
-				mtp_debug("LG_FW : mtp data_len  = 0\n");
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
+			lg_mtp_debug("LG_FW : mtp data_len  = 0\n");
+#endif
 				req_put(&g_usb_mtp_context.rx_reqs,
 						g_usb_mtp_context.cur_read_req);
 				g_usb_mtp_context.cur_read_req = 0;
@@ -462,6 +496,10 @@ requeue_req:
 			g_usb_mtp_context.cur_read_req = req;
 			g_usb_mtp_context.data_len = req->actual;
 			g_usb_mtp_context.read_buf = req->buf;
+
+#ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
+			lg_mtp_debug("LG_FW : g_usb_mtp_context.data_len = [%d] \n", g_usb_mtp_context.data_len);
+#endif
 			mtp_debug("rx %p done actual=%d\n", req, req->actual);
 		}
 	}
@@ -556,26 +594,43 @@ struct mtp_event_data {
 };
 #ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
 extern int mtp_get_usb_state(void);
-#endif
+
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-26,  */
+extern int mtp_enable_flag;
+extern u16 product_id;
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-11-26 */
 
 static int mtp_ioctl(struct inode *inode, struct file *file,
 		unsigned int cmd, unsigned long arg)
 {   
   u16 g_mtp_get_status;    
   struct usb_request	*req =g_usb_mtp_context.cdev->req;
+  struct usb_ep *ep0;
+  long ret;
+  int usbconnect = 0;
 
 /* LGE_CHANGES_S [younsuk.song@lge.com] 2010-09-18, Depense code for Null pointer access */
 
-	if (NULL == g_usb_mtp_context.cdev->gadget)
-	{
-		return -EFAULT;
-	}
-	
+  /* When mtp_enable_open()/release()(in android.c) is invoked,
+   * mtp_enable_flag is set/cleared. If enable flag is false(mtp is off),
+   * we cut off the user's ioctl request.
+   */
+  if (!mtp_enable_flag)
+	  return -ENODEV;
+
+  if (product_id != 0x61C7) {
+	  printk(KERN_INFO "not MTP pid\n");
+	  return -EFAULT;
+  }
+
+  if (g_usb_mtp_context.cdev->gadget == NULL) {
+	  return -EFAULT;
+  }
+
+  ep0 = g_usb_mtp_context.cdev->gadget->ep0;
+
 /* LGE_CHANGES_E [younsuk.song@lge.com]  */
 
-  struct usb_ep *ep0 = g_usb_mtp_context.cdev->gadget->ep0;
-  long ret;
-  int usbconnect = 0;
 
   switch (cmd)  
   {      	       
@@ -588,6 +643,17 @@ static int mtp_ioctl(struct inode *inode, struct file *file,
       {
          mtp_debug("USB_MTP_FUNC_IOC_CONTROL_REQUEST_GET status = %d\n", g_bRequest);
          ret = copy_to_user ((void __user *)arg, &g_bRequest, sizeof(g_bRequest));
+		 
+		 if(g_bRequest == MTP_CLASS_CANCEL_REQ)
+		 {
+		   lg_mtp_debug("LG_FW : MTP CANCEL Request Device => App !!\n");
+		   cancel_noti = 1;
+		 }
+		 else if(g_bRequest == MTP_CLASS_GET_DEVICE_STATUS)
+		 {
+		   lg_mtp_debug("LG_FW : MTP GET DEVICE Request Device => App!!\n");
+		 }
+
       }
       else
       {
@@ -632,11 +698,18 @@ static int mtp_ioctl(struct inode *inode, struct file *file,
            mtp_debug("LG_FW :: req is NULL");
            return -EFAULT;
          }
+		 lg_mtp_debug("LG_FW : MTP SET DEVICE STATUS App => Device [0x%x]!!\n",arg);
          *((u16 *)(req->buf)) = 0x0004;
          *((u16 *)(req->buf + 2)) = arg;
 		 req->zero = 0;
 		 req->length = 6;
          usb_ep_queue(ep0,req, GFP_ATOMIC);
+		 
+		 if(arg == 0x2001)
+		 {
+		   cancel_noti = 0;
+		 }
+
 		 break;
 	                          
     default :
@@ -646,6 +719,7 @@ static int mtp_ioctl(struct inode *inode, struct file *file,
   
 	return 0;  
 }
+#endif
 
 /* file operations for MTP device /dev/mtp */
 static const struct file_operations mtp_fops = {
@@ -1123,38 +1197,32 @@ static int mtp_function_setup(struct usb_function *f,
 		case MTP_CLASS_GET_DEVICE_STATUS:
 #ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER
             g_bRequest = ctrl->bRequest;
+
+		 if(g_bRequest == MTP_CLASS_CANCEL_REQ)
+		 {
+		   lg_mtp_debug("LG_FW : MTP CANCEL Request PC => Device!!\n");
+		   cancel_noti = 1;
+		 }
+		 else if(g_bRequest == MTP_CLASS_GET_DEVICE_STATUS)
+		 {
+		   lg_mtp_debug("LG_FW : MTP GET DEVICE Request PC => Device!!\n");
+		 }
 #endif
 			mtp_debug("ctl request=0x%x\n", ctrl->bRequest);
-			ctl_req = ctl_req_get(&g_usb_mtp_context.ctl_rx_reqs);
-			if (!ctl_req) {
-				mtp_err("get free ctl req failed\n");
-				break;
-			}
-			memcpy(&ctl_req->creq, ctrl,
-					sizeof(struct usb_ctrlrequest));
-			ctl_req->header = 1;
-			ctl_req_put(&g_usb_mtp_context.ctl_rx_done_reqs,
-				ctl_req);
+
 			value = 0;
 			if ((ctrl->bRequest  == MTP_CLASS_CANCEL_REQ)
 				&& wLength == MTP_CANCEL_REQ_DATA_SIZE) {
-
-				memset(&ctl_req->cancel_data, 0,
-					MTP_CANCEL_REQ_DATA_SIZE);
 				value = wLength;
-				cdev->gadget->ep0->driver_data = ctl_req;
-				req->complete = mtp_ctl_read_complete;
 				req->zero = 0;
 				req->length = wLength;
 
+                lg_mtp_debug("LG_FW : MTP Cancel Request Length [%d] \n", wLength);
 				if (usb_ep_queue(cdev->gadget->ep0,
 						req, GFP_ATOMIC)) {
 					mtp_err("ep0 out queue failed\n");
-					mtp_ctl_read_complete(cdev->gadget->ep0,
-							req);
 				}
-			} else
-				wake_up(&g_usb_mtp_context.ctl_rx_wq);
+			} 
 			break;
 		default:
 			break;
@@ -1230,7 +1298,7 @@ struct usb_function *mtp_function_enable(int enable, int id)
 int mtp_function_init(void)
 {
     int ret;
-#if 0
+#if !defined(CONFIG_USB_GADGET_LG_MTP_DRIVER)
     struct proc_dir_entry *mtp_proc = NULL;
 #endif
     ret = misc_register(&mtp_device);
@@ -1245,7 +1313,7 @@ int mtp_function_init(void)
 	    printk(KERN_ERR "mtp csr device failed to initialize\n");
     }
     
-#if 0    
+#if !defined(CONFIG_USB_GADGET_LG_MTP_DRIVER)
     mtp_proc = create_proc_entry("mtpctl", 0666, 0);
     if (!mtp_proc) {
 	   mtp_err("creating /proc/mtpctl failed\n");

@@ -64,6 +64,28 @@
  */
 extern struct msm_pm_platform_data msm7x25_pm_data[MSM_PM_SLEEP_MODE_NR];
 extern struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR];
+#if 0
+struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE].supported = 1,
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE].suspend_enabled = 1,
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE].idle_enabled = 1,
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE].latency = 16000,
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE].residency = 20000,
+
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN].supported = 1,
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN].suspend_enabled = 1,
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN].idle_enabled = 1,
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN].latency = 12000,
+	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN].residency = 20000,
+
+	[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].supported = 1,
+	[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].suspend_enabled
+		= 1,
+	[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].idle_enabled = 1,
+	[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].latency = 2000,
+	[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].residency = 0,
+};
+#endif
 
 /* board-specific usb data definitions */
 
@@ -106,22 +128,22 @@ struct usb_composition usb_func_composition[] = {
 		.adb_functions	    = 0x43,
 	},
 #ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER	
-	{
+    {
 		/* We support MTP */
-		.product_id         = 0x61C7,
-		.functions          = 0xB, /* MTP*/
-		.adb_product_id     = 0x61C7,
-		.adb_functions	    = 0xB,
-	},
+        .product_id         = 0x61C7,
+        .functions          = 0xB, /* MTP*/
+        .adb_product_id     = 0x61C7,
+	    .adb_functions	    = 0xB,
+    },
 #endif
 #ifdef CONFIG_USB_ANDROID_CDC_ECM
-	{
-		/* LG Rmnet Driver for matching LG Android Net driver */
-		.product_id         = 0x61A2,
-		.functions          = 0x27384,
-		.adb_product_id     = 0x61A1,
-		.adb_functions	    = 0x128A,
-	},
+    {
+		/* LG CDC-ECM Driver for matching LG Android Net driver */
+        .product_id         = 0x61A2,
+        .functions          = 0x27384,
+        .adb_product_id     = 0x61A1,
+	    .adb_functions	    = 0x127384,
+    },
 #endif
 /* LGE_CHANGE_S : For Autorun */
 #ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN 
@@ -143,10 +165,10 @@ struct usb_composition usb_func_composition[] = {
 /* LGE_CHANGE_E : For Autorun */
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	{
-		/* Microsoft's RNDIS driver */
-		.product_id         = 0xF00E,
+		/* RNDIS */
+		.product_id         = 0x61DA,
 		.functions	    	= 0xA,
-		.adb_product_id     = 0x9024,
+		.adb_product_id     = 0x61D9,
 		.adb_functions	    = 0x1A,
 	},
 #endif
@@ -155,25 +177,19 @@ struct usb_composition usb_func_composition[] = {
 #define VENDOR_QCT	0x05C6
 #define VENDOR_LGE	0x1004
 
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-09-09, Apply VS660 model name */
 struct android_usb_platform_data android_usb_pdata = {
-	.version	= 0x0100,
 	.vendor_id	= VENDOR_LGE,
-	.product_name       = "LG Optimus V",
-#ifdef CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID
-	.serial_number		= "MEID_SHOULD_BE_HERE",
-#else
-#ifdef CONFIG_MACH_MSM7X27_THUNDERC_SPRINT
-	.serial_number		= "LGANDROIDLS670",
-#else
-	.serial_number		= "LGANDROIDUS670",
-#endif
-#endif
-	.manufacturer_name	= "LG Electronics Inc.",
+	.version	= 0x0100,
 	.compositions   = usb_func_composition,
 	.num_compositions = ARRAY_SIZE(usb_func_composition),
+	.product_name       = "LG Vortex USB Device",
+	.manufacturer_name	= "LG Electronics Inc.",
+	.serial_number		= "LGANDROIDVS660",	
 	.init_product_id	= 0x618E,
 	.nluns = 1,
 };
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-09-09 */
 
 #endif /* CONFIG_USB_ANDROID */
 
@@ -310,19 +326,14 @@ static void __init msm7x2x_map_io(void)
 
 #ifdef CONFIG_CACHE_L2X0
 	/* 7x27 has 256KB L2 cache:
-	 * 64Kb/Way and 4-Way Associativity;
-	 * R/W latency: 3 cycles;
-	 * evmon/parity/share disabled.
-	 */
+		64Kb/Way and 4-Way Associativity;
+		R/W latency: 3 cycles;
+		evmon/parity/share disabled. */
 	l2x0_init(MSM_L2CC_BASE, 0x00068012, 0xfe000000);
 #endif
 }
 
-#ifdef CONFIG_MACH_MSM7X27_THUNDERC_SPRINT
-MACHINE_START(MSM7X27_THUNDERC, "THUNDER Sprint board (LGE LS670/VM670)")
-#else
-MACHINE_START(MSM7X27_THUNDERC, "THUNDER CDMA board (LGE 670)")
-#endif
+MACHINE_START(MSM7X27_THUNDERC, "THUNDER Verizone board (LGE VS660)")
 #ifdef CONFIG_MSM_DEBUG_UART
 	.phys_io        = MSM_DEBUG_UART_PHYS,
 	.io_pg_offst    = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,

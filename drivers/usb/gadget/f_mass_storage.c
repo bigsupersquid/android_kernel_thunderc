@@ -247,10 +247,14 @@ struct bulk_cs_wrap {
 #define TYPE_MOD_CHG_TO_UMS		0x02
 #define TYPE_MOD_CHG_TO_MTP		0x03
 #define TYPE_MOD_CHG_TO_ASK		0x05
+#define TYPE_MOD_CHG_TO_CGO		0x08
+#define TYPE_MOD_CHG_TO_TET		0x09
 #define TYPE_MOD_CHG2_TO_ACM		0x81
 #define TYPE_MOD_CHG2_TO_UMS		0x82
 #define TYPE_MOD_CHG2_TO_MTP		0x83
 #define TYPE_MOD_CHG2_TO_ASK		0x85
+#define TYPE_MOD_CHG2_TO_CGO		0x86
+#define TYPE_MOD_CHG2_TO_TET		0x87
 /*ACK TO SEND HOST PC */
 #define ACK_STATUS_TO_HOST		0x10
 #define ACK_SW_REV_TO_HOST		0x12
@@ -261,6 +265,8 @@ struct bulk_cs_wrap {
 #define SUB_ACK_STATUS_MTP		0x01
 #define SUB_ACK_STATUS_UMS		0x02
 #define SUB_ACK_STATUS_ASK		0x03
+#define SUB_ACK_STATUS_CGO		0x04
+#define SUB_ACK_STATUS_TET		0x05
 #endif
 /* LGE_CHANGE_E [adwardk.kim@lge.com] 2010-08-07 */
 
@@ -292,6 +298,8 @@ static const char *chg_mode[] = {
 	"change_mtp",
 	"change_ums", 
 	"change_ask", 
+	"change_charge",
+	"change_tether",
 	"query_value",
 	"device_info",
 };
@@ -302,6 +310,8 @@ enum chg_mode_state{
 	MODE_STATE_MTP,
 	MODE_STATE_UMS,
 	MODE_STATE_ASK,
+	MODE_STATE_CGO,
+	MODE_STATE_TET,
 	MODE_STATE_GET_VALUE,
 	MODE_STATE_PROBE_DEV,
 };
@@ -311,6 +321,8 @@ static const char *check_str[] = {
 	"ACK_STATUS_MTP",
 	"ACK_STATUS_UMS",
 	"ACK_STATUS_ASK",
+	"ACK_STATUS_CGO",
+	"ACK_STATUS_TET",
 };
 
 enum check_mode_state {
@@ -318,6 +330,8 @@ enum check_mode_state {
 	ACK_STATUS_MTP = SUB_ACK_STATUS_MTP,
 	ACK_STATUS_UMS = SUB_ACK_STATUS_UMS,
 	ACK_STATUS_ASK = SUB_ACK_STATUS_ASK,
+	ACK_STATUS_CGO = SUB_ACK_STATUS_CGO,
+	ACK_STATUS_TET = SUB_ACK_STATUS_TET,
 	ACK_STATUS_ERR,
 };
 
@@ -1529,11 +1543,16 @@ static int do_verify(struct fsg_dev *fsg)
  * "LGE Android Platform USB Device"
  * FIXME : This info must be in platform data of mass storage
  */
+
+/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-09-09, Apply model name */
+/* NOTE : THIS IS ONLY FOR VERIZON 
+ */
 #ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-#define LGE_UMS_VENDOR    "LGE"
-#define LGE_UMS_PRODUCT   "Android Platform"
-#define LGE_CDROM_PRODUCT "Android CDROM"
+#define LGE_UMS_VENDOR    "LG"
+#define LGE_UMS_PRODUCT   "Vortex"
+#define LGE_CDROM_PRODUCT "Vortex CDROM"
 #endif
+/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-09-09 */
 /* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-07-10 */
 
 static int do_inquiry(struct fsg_dev *fsg, struct fsg_buffhd *bh)
@@ -1622,6 +1641,10 @@ static int do_ack_status(struct fsg_dev *fsg, struct fsg_buffhd *bh, u8 ack)
 		buf[0] = SUB_ACK_STATUS_UMS;
 	else if(ack == SUB_ACK_STATUS_ASK)
 		buf[0] = SUB_ACK_STATUS_ASK;
+	else if(ack == SUB_ACK_STATUS_CGO)
+		buf[0] = SUB_ACK_STATUS_CGO;
+	else if(ack == SUB_ACK_STATUS_TET)
+		buf[0] = SUB_ACK_STATUS_TET;
 
 	return 1;
 }
@@ -2186,22 +2209,18 @@ static int finish_reply(struct fsg_dev *fsg)
 #endif
 /* LGE_CHANGE_E [adwardk.kim@lge.com] 2010-08-07 */		
 		if (fsg->data_size == 0)
-#ifdef CONFIG_LGE_USB_SUPPORT_ANDROID_AUTORUN
-
 			DBG(fsg, "finish_reply(1)");		/* Nothing to send */
-#else
-			;		/* Nothing to send */
-#endif
+
 		/* If there's no residue, simply send the last buffer */
 		else if (fsg->residue == 0) {
-/* LGE_CHANGE_S [adwardk.kim@lge.com] 2010-08-07 */
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
 			DBG(fsg, "finish_reply(1-1)");
 			start_transfer(fsg, fsg->bulk_in, bh->inreq,
 					&bh->inreq_busy, &bh->state);
 			fsg->next_buffhd_to_fill = bh->next;
 		} else {
 			DBG(fsg, "finish_reply(1-2)");
+/* LGE_CHANGE_S [adwardk.kim@lge.com] 2010-08-07 */
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
 			if (fsg->autorun_enable) {
 				start_transfer(fsg, fsg->bulk_in, bh->inreq,
 						&bh->inreq_busy, &bh->state);
@@ -2226,10 +2245,6 @@ static int finish_reply(struct fsg_dev *fsg)
 				}
 			}
 #else
-			start_transfer(fsg, fsg->bulk_in, bh->inreq,
-					&bh->inreq_busy, &bh->state);
-			fsg->next_buffhd_to_fill = bh->next;
-		} else {
 			if (can_stall) {
 				bh->state = BUF_STATE_EMPTY;
 				for (i = 0; i < NUM_BUFFERS; ++i) {
@@ -2617,6 +2632,14 @@ static int do_scsi_command(struct fsg_dev *fsg)
 					case TYPE_MOD_CHG2_TO_ASK :
 						fsg->mode_state = MODE_STATE_ASK;
 						break;
+					case TYPE_MOD_CHG_TO_CGO :
+					case TYPE_MOD_CHG2_TO_CGO :
+						fsg->mode_state = MODE_STATE_CGO;
+						break;
+					case TYPE_MOD_CHG_TO_TET :
+					case TYPE_MOD_CHG2_TO_TET :
+						fsg->mode_state = MODE_STATE_TET;
+						break;
 					default:
 						fsg->mode_state = MODE_STATE_UNKNOWN;
 				}
@@ -2986,9 +3009,6 @@ static int get_next_command(struct fsg_dev *fsg)
 				return rc;
 			} else
 				return rc;
-#else
-			return rc;
-
 #endif
 /* LGE_CHANGE_E [adwardk.kim@lge.com] 2010-08-07 */
 		}
@@ -3140,9 +3160,9 @@ static void adjust_wake_lock(struct fsg_dev *fsg)
 		}
 	}
 
-	if (ums_active)
+	if (ums_active) {
 		wake_lock(&fsg->wake_lock);
-	else
+	} else
 		wake_unlock(&fsg->wake_lock);
 
 	spin_unlock_irqrestore(&fsg->lock, flags);
@@ -3591,13 +3611,9 @@ static ssize_t store_file(struct device *dev, struct device_attribute *attr,
 	return (rc < 0 ? rc : count);
 }
 
-/* LGE_CHANGE_S [adwardk.kim@lge.com] 2010-08-07 */
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
 
 static DEVICE_ATTR(file, 0666, show_file, store_file);
-#else
-static DEVICE_ATTR(file, 0444, show_file, store_file);
-#endif
+
 /* LGE_CHANGE_S [adwardk.kim@lge.com] 2010-08-07 */
 #ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
 #if 0
@@ -3784,11 +3800,7 @@ fsg_function_bind(struct usb_configuration *c, struct usb_function *f)
 	/*LGE_CHANGE_E[kyuhyung.lee@lge.com - #endif*/
 #endif
 
-#ifdef CONFIG_SUPPORT_LGE_ANDROID_AUTORUN
 	dev_attr_file.attr.mode = 0666;
-#else
-	dev_attr_file.attr.mode = 0644;
-#endif
 
 	/* Find out how many LUNs there should be */
 	i = fsg->nluns;

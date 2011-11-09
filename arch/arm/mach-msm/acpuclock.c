@@ -48,9 +48,6 @@
 #define dprintk(msg...) \
 	cpufreq_debug_printk(CPUFREQ_DEBUG_DRIVER, "cpufreq-msm", msg)
 
-/* Max CPU frequency allowed by hardware while in standby waiting for an irq. */
-#define MAX_WAIT_FOR_IRQ_KHZ 128000
-
 enum {
 	ACPU_PLL_TCXO	= -1,
 	ACPU_PLL_0	= 0,
@@ -68,7 +65,6 @@ struct clock_state
 	uint32_t			max_speed_delta_khz;
 	uint32_t			vdd_switch_time_us;
 	unsigned long			max_axi_khz;
-	unsigned long			wait_for_irq_khz;
 };
 
 #define PLL_BASE	7
@@ -215,16 +211,6 @@ static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200[] = {
 	{ 0, 400000, ACPU_PLL_2, 2, 2, 133333, 2, 5, 122880 },
 	{ 1, 480000, ACPU_PLL_0, 4, 1, 160000, 2, 6, 122880 },
 	{ 1, 600000, ACPU_PLL_2, 2, 1, 200000, 2, 7, 122880 },
-	// OC HACK insert additional freqs
-	{ 1, 729600, ACPU_PLL_0, 4, 0, 182400, 3, 7, 122880 },
-	{ 1, 748800, ACPU_PLL_0, 4, 0, 187200, 3, 7, 122880 },
-	{ 1, 768000, ACPU_PLL_0, 4, 0, 192000, 3, 7, 122880 },
-	{ 1, 787200, ACPU_PLL_0, 4, 0, 196800, 3, 7, 122880 },
-	{ 1, 806400, ACPU_PLL_0, 4, 0, 201600, 3, 7, 122880 },
-	{ 1, 825600, ACPU_PLL_0, 4, 0, 206400, 3, 7, 122880 },
-	{ 1, 844800, ACPU_PLL_0, 4, 0, 211200, 3, 7, 122880 },
-	{ 1, 864000, ACPU_PLL_0, 4, 0, 216000, 3, 7, 122880 },
-	// OC HACK end
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0}, {0, 0, 0} }
 };
 
@@ -373,13 +359,12 @@ unsigned long acpuclk_power_collapse(void)
 	return ret;
 }
 
+#define WAIT_FOR_IRQ_KHZ 128000
 unsigned long acpuclk_wait_for_irq(void)
 {
-	int rate = acpuclk_get_rate(smp_processor_id());
-	if (rate > MAX_WAIT_FOR_IRQ_KHZ)
-		acpuclk_set_rate(smp_processor_id(), drv_state.wait_for_irq_khz,
-				 SETRATE_SWFI);
-	return rate;
+	int ret = acpuclk_get_rate(smp_processor_id());
+	acpuclk_set_rate(smp_processor_id(), WAIT_FOR_IRQ_KHZ, SETRATE_SWFI);
+	return ret;
 }
 
 static int acpuclk_set_vdd_level(int vdd)
@@ -405,8 +390,7 @@ static int acpuclk_set_vdd_level(int vdd)
 
 /* Set proper dividers for the given clock speed. */
 static void acpuclk_set_div(const struct clkctl_acpu_speed *hunt_s) {
-    // OC HACK
-    uint32_t reg_clkctl, reg_clksel, clk_div, src_sel, a11_div;
+	uint32_t reg_clkctl, reg_clksel, clk_div, src_sel;
 
 	reg_clksel = readl(A11S_CLK_SEL_ADDR);
 
@@ -414,16 +398,6 @@ static void acpuclk_set_div(const struct clkctl_acpu_speed *hunt_s) {
 	clk_div = (reg_clksel >> 1) & 0x03;
 	/* CLK_SEL_SRC1NO */
 	src_sel = reg_clksel & 1;
-
-    // OC HACK
-    a11_div = hunt_s->a11clk_src_div;
-
-    if (hunt_s->a11clk_khz>600000) {
-        a11_div=0;
-        writel(hunt_s->a11clk_khz/19200, PLLn_L_VAL(0));
-        udelay(50);
-    }
-    // OC HACK end
 
 	/*
 	 * If the new clock divider is higher than the previous, then
@@ -438,9 +412,7 @@ static void acpuclk_set_div(const struct clkctl_acpu_speed *hunt_s) {
 	/* Program clock source and divider */
 	reg_clkctl = readl(A11S_CLK_CNTL_ADDR);
 	reg_clkctl &= ~(0xFF << (8 * src_sel));
-    reg_clkctl |=a11_div; // OC HACK: add 1 line
 	reg_clkctl |= hunt_s->a11clk_src_sel << (4 + 8 * src_sel);
-    reg_clkctl |=a11_div; // OC HACK: add 1 line
 	reg_clkctl |= hunt_s->a11clk_src_div << (0 + 8 * src_sel);
 	writel(reg_clkctl, A11S_CLK_CNTL_ADDR);
 
@@ -605,6 +577,10 @@ int acpuclk_set_rate(int cpu, unsigned long rate, enum setrate_reason reason)
 			pr_warning("Setting AXI min rate failed (%d)\n", res);
 	}
 
+	/* Nothing else to do for power collapse if not 7x27. */
+	if (reason == SETRATE_PC && !cpu_is_msm7x27())
+		goto out;
+
 	/* Disable PLLs we are not using anymore. */
 	if (tgt_s->pll != ACPU_PLL_TCXO)
 		plls_enabled &= ~(1 << tgt_s->pll);
@@ -672,11 +648,9 @@ static void __init acpuclk_init(void)
 	}
 
 	drv_state.current_speed = speed;
-	// OC HACK
-    if (speed->pll != ACPU_PLL_TCXO)
-        if (pc_pll_request(speed->pll, 1))
-            pr_warning("Failed to vote for boot PLL\n");
-    // OC HACK END
+	if (speed->pll != ACPU_PLL_TCXO)
+		if (pc_pll_request(speed->pll, 1))
+			pr_warning("Failed to vote for boot PLL\n");
 
 	res = ebi1_clk_set_min_rate(CLKVOTE_ACPUCLK, speed->axiclk_khz * 1000);
 	if (res < 0)
@@ -792,22 +766,6 @@ static void __init acpu_freq_tbl_fixup(void)
 		pr_info("Turbo mode supported and enabled.\n");
 	else
 		pr_info("Turbo mode supported but not enabled.\n");
-}
-
-/*
- * Hardware requires the CPU to be dropped to less than MAX_WAIT_FOR_IRQ_KHZ
- * before entering a wait for irq low-power mode. Find a suitable rate.
- */
-static unsigned long __init find_wait_for_irq_khz(void)
-{
-	unsigned long found_khz = 0;
-	int i;
-
-	for (i = 0; acpu_freq_tbl[i].a11clk_khz &&
-		    acpu_freq_tbl[i].a11clk_khz <= MAX_WAIT_FOR_IRQ_KHZ; i++)
-		found_khz = acpu_freq_tbl[i].a11clk_khz;
-
-	return found_khz;
 }
 
 /* Initalize the lpj field in the acpu_freq_tbl. */
@@ -935,16 +893,13 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	pr_info("acpu_clock_init()\n");
 
 	mutex_init(&drv_state.lock);
-	// OC HACK
-    if (cpu_is_msm7x27())
-        shared_pll_control_init();
-    // OC HACK END
-    drv_state.acpu_switch_time_us = clkdata->acpu_switch_time_us;
+	if (cpu_is_msm7x27())
+		shared_pll_control_init();
+	drv_state.acpu_switch_time_us = clkdata->acpu_switch_time_us;
 	drv_state.max_speed_delta_khz = clkdata->max_speed_delta_khz;
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
 	drv_state.max_axi_khz = clkdata->max_axi_khz;
 	acpu_freq_tbl_fixup();
-	drv_state.wait_for_irq_khz = find_wait_for_irq_khz();
 	precompute_stepping();
 	if (cpu_is_msm7x25())
 		msm7x25_acpu_pll_hw_bug_fix();
