@@ -263,3 +263,4 @@ module_exit(ats_input_exit);
 MODULE_AUTHOR("LG Electronics Inc.");
 MODULE_DESCRIPTION("ATS_EVENT_LOG driver");
 MODULE_LICENSE("GPL v2");
+
