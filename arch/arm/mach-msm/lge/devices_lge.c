@@ -124,7 +124,6 @@ static int __init board_revno_setup(char *rev_info)
     return 1;
 }
 //20100727 myeonggyu.son@lge.com [MS690] pcd revision [END]
->>>>>>> 9a84606... First pass at using USB gadget framework.
 
 __setup("lge.rev=", board_revno_setup);
 
