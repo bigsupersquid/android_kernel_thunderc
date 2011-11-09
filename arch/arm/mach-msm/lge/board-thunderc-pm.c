@@ -26,7 +26,7 @@ int thunderc_pwrsink_suspend_noirq(struct device *dev)
 
 	camera_power_mutex_lock();
 
-	if (camera_power_state == CAM_POWER_ON) {
+	if (camera_power_state == CAMERA_POWER_ON) {
 		camera_power_mutex_unlock();
 		return 0;
 	}
@@ -58,7 +58,7 @@ int thunderc_pwrsink_resume_noirq(struct device *dev)
 
 	camera_power_mutex_lock();
 
-	if (camera_power_state == CAM_POWER_ON ||
+	if (camera_power_state == CAMERA_POWER_ON ||
 		lcd_bl_power_state == BL_POWER_RESUME) {
 		camera_power_mutex_unlock();
 		return 0;
@@ -75,7 +75,8 @@ int thunderc_pwrsink_resume_noirq(struct device *dev)
 
 //	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_VSYNC_O, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
 
-	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_MAKER_LOW, 0, GPIO_INPUT, GPIO_PULL_UP, GPIO_2MA), GPIO_ENABLE);
+	/*LGE_CHANGE yongman.kwon@lge.com 2010-09-05 [MS690] : dont use maker ID*/
+	//gpio_tlmm_config(GPIO_CFG(GPIO_LCD_MAKER_LOW, 0, GPIO_INPUT, GPIO_PULL_UP, GPIO_2MA), GPIO_ENABLE);
 
 	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_RESET_N, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
 	gpio_direction_output(GPIO_LCD_RESET_N, 0);
@@ -100,7 +101,8 @@ void thunderc_pwrsink_resume()
 
 //	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_VSYNC_O, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
 
-	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_MAKER_LOW, 0, GPIO_INPUT, GPIO_PULL_UP, GPIO_2MA), GPIO_ENABLE);
+	/*LGE_CHANGE yongman.kwon@lge.com 2010-09-05 [MS690] : dont use maker ID*/
+	//gpio_tlmm_config(GPIO_CFG(GPIO_LCD_MAKER_LOW, 0, GPIO_INPUT, GPIO_PULL_UP, GPIO_2MA), GPIO_ENABLE);
 
 	gpio_tlmm_config(GPIO_CFG(GPIO_LCD_RESET_N, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
 	gpio_direction_output(GPIO_LCD_RESET_N, 0);

@@ -1022,17 +1022,4 @@ config USB_SUPPORT_LGE_ANDROID_ECM_FIX
 	default n
 # LGE_CHANGE_E [hyunhui.park@lge.com] 2010-08-31 	
 
-# LGE_CHANGE_S [hyunhui.park@lge.com] 2010-09-19, Detection of Factory cable
-config USB_SUPPORT_LGE_ANDROID_FACTORY_CABLE_WQ
-	boolean "Detection of factory cable using workqueue in LGE Android model(common)"
-	depends on USB_SUPPORT_LGE_ANDROID_GADGET
-	help
-	  It supports factory cable detection using workqueue in LGE Android model.
-
-	  NOTE : This option must be used with factory cable kernel feature
-	  together(i.e. USB_SUPPORT_LGE_FACTORY_USB or USB_SUPPORT_LGE_FACTORY_USB_GSM).
-
-	default n
-# LGE_CHANGE_E [hyunhui.park@lge.com] 2010-09-19
-
 endif # USB_GADGET

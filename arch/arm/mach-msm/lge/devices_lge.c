@@ -42,27 +42,89 @@
 #endif
 #include "../devices.h"
 #include "../pm.h"
+//20100727 myeonggyu.son@lge.com [MS690] pcd revision [START]
+#include <mach/lg_pcb_version.h>
 
 /* setting board revision information */
 int lge_bd_rev;
 
+/*
+    PCB_REVISION_UNKOWN = 0,
+    PCB_REVISION_A = 1,
+    PCB_REVISION_B = 2,
+    PCB_REVISION_C = 3,
+    PCB_REVISION_D = 4,
+    PCB_REVISION_E = 5,
+    PCB_REVISION_F= 6,
+    PCB_REVISION_G = 7,
+    PCB_REVISION_1P0 = 8,
+    PCB_REVISION_1P1 = 9,
+    PCB_REVISION_1P2 = 10,
+    PCB_REVISION_1P3 = 11,
+    PCB_REVISION_1P4 = 12,
+    PCB_REVISION_1P5 = 13,
+    PCB_REVISION_1P7 = 14,
+*/
 static int __init board_revno_setup(char *rev_info)
 {
-	char *rev_str[] = { "evb", "rev_a", "rev_b", "rev_c", "rev_d", "rev_e", "rev_f","rev_10","rev_11","rev_12","rev_13",};
-	int i;
-
-	lge_bd_rev = LGE_REV_TOT_NUM;
+	char pcb_version[10];
 	
-	for (i = 0; i < LGE_REV_TOT_NUM; i++) 
-		if (!strncmp(rev_info, rev_str[i], 6)) {
-			lge_bd_rev = i;
+	lge_bd_rev = (int)simple_strtol(rev_info, NULL, 10);
+
+	switch(lge_bd_rev)			
+	{
+		case HW_PCB_REV_A: 				
+			strcpy(pcb_version, "A");
 			break;
-		}
-
-	printk(KERN_INFO"BOARD: LGE %s\n", rev_str[lge_bd_rev]);
-
-	return 1;
+		case HW_PCB_REV_B: 
+			strcpy(pcb_version, "B");
+		    break;
+		case HW_PCB_REV_C: 	
+			strcpy(pcb_version, "C");
+			 break;
+		case HW_PCB_REV_D: 
+			strcpy(pcb_version, "D");
+			 break;
+		case HW_PCB_REV_E: 	
+			strcpy(pcb_version, "E");
+			 break;
+		case HW_PCB_REV_F:
+			strcpy(pcb_version, "F");
+			 break;
+		case HW_PCB_REV_G:
+			strcpy(pcb_version, "G");
+			 break;
+		case HW_PCB_REV_10:
+			strcpy(pcb_version, "1.0");
+			 break;
+		case HW_PCB_REV_11:	
+			strcpy(pcb_version, "1.1");
+			 break;
+		case HW_PCB_REV_12:
+			strcpy(pcb_version, "1.2");
+			 break;
+		case HW_PCB_REV_13:
+			strcpy(pcb_version, "1.3");
+			 break;
+		case HW_PCB_REV_14:	
+			strcpy(pcb_version, "1.4");
+			 break;
+		case HW_PCB_REV_15:	
+			strcpy(pcb_version, "1.5");
+			 break;
+		case HW_PCB_REV_16:	
+			strcpy(pcb_version, "1.6");
+			 break;
+		default:	
+			strcpy(pcb_version, "Unknown");
+			 break;
+	}
+	printk(KERN_INFO"BOARD: H/W revision = %s(%d)\n", pcb_version, lge_bd_rev);
+	
+    return 1;
 }
+//20100727 myeonggyu.son@lge.com [MS690] pcd revision [END]
+>>>>>>> 9a84606... First pass at using USB gadget framework.
 
 __setup("lge.rev=", board_revno_setup);
 
@@ -87,6 +149,29 @@ static int __init lge_uart_mode(char *uart_mode)
 }
 
 __setup("uart_console=", lge_uart_mode);
+
+/* To support VS660 Smart factory reset
+ * We dont check flag in kernel if system booting is recovery mode
+ * 2010-06-08, taehung.kim@lge.com
+ */
+static int recovery_mode;
+
+int lge_get_recovery_state(void)
+{
+	return recovery_mode;
+}
+
+static int __init lge_recovery_state(char *s)
+{
+	if(!strcmp(s,"on"))
+		recovery_mode = 1;
+	else
+		recovery_mode = 0;
+	printk("%s: recovery mode = %s\n", __func__, s);
+	
+	return 1;
+}
+__setup("recovery=",lge_recovery_state);
 
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 static struct resource ram_console_resource[] = {
@@ -359,7 +444,7 @@ void __init msm_msm7x2x_allocate_memory_regions(void)
 	}
 
 	size = MSM_PMEM_AUDIO_SIZE;
-	android_pmem_audio_pdata.start = MSM_PMEM_AUDIO_START_ADDR;
+	android_pmem_audio_pdata.start = MSM_PMEM_AUDIO_START_ADDR ;
 	android_pmem_audio_pdata.size = size;
 	pr_info("allocating %lu bytes (at %lx physical) for audio "
 		"pmem arena\n", size , MSM_PMEM_AUDIO_START_ADDR);
@@ -689,7 +774,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.pmic_enable_ldo         = msm_pm_app_enable_usb_ldo,
 /* DKL TEMPORARY 2010-10-18,  */
 	.pclk_required_during_lpm = 1,
-/* DKL TEMPORARY 2010-10-18 */	
+
 };
 
 #ifdef CONFIG_USB_GADGET

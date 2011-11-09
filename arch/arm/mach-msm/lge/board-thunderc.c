@@ -64,6 +64,7 @@
  */
 extern struct msm_pm_platform_data msm7x25_pm_data[MSM_PM_SLEEP_MODE_NR];
 extern struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR];
+<<<<<<< HEAD
 #if 0
 struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 	[MSM_PM_SLEEP_MODE_POWER_COLLAPSE].supported = 1,
@@ -86,6 +87,8 @@ struct msm_pm_platform_data msm7x27_pm_data[MSM_PM_SLEEP_MODE_NR] = {
 	[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].residency = 0,
 };
 #endif
+=======
+>>>>>>> 9a84606... First pass at using USB gadget framework.
 
 /* board-specific usb data definitions */
 
@@ -128,13 +131,13 @@ struct usb_composition usb_func_composition[] = {
 		.adb_functions	    = 0x43,
 	},
 #ifdef CONFIG_USB_GADGET_LG_MTP_DRIVER	
-    {
+	{
 		/* We support MTP */
-        .product_id         = 0x61C7,
-        .functions          = 0xB, /* MTP*/
-        .adb_product_id     = 0x61C7,
-	    .adb_functions	    = 0xB,
-    },
+		.product_id         = 0x61C7,
+		.functions          = 0xB, /* MTP*/
+		.adb_product_id     = 0x61C7,
+		.adb_functions	    = 0xB,
+	},
 #endif
 #ifdef CONFIG_USB_ANDROID_CDC_ECM
 	{
@@ -165,10 +168,10 @@ struct usb_composition usb_func_composition[] = {
 /* LGE_CHANGE_E : For Autorun */
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	{
-		/* RNDIS */
-		.product_id         = 0x61DA,
+		/* Microsoft's RNDIS driver */
+		.product_id         = 0xF00E,
 		.functions	    	= 0xA,
-		.adb_product_id     = 0x61D9,
+		.adb_product_id     = 0x9024,
 		.adb_functions	    = 0x1A,
 	},
 #endif
@@ -189,7 +192,6 @@ struct android_usb_platform_data android_usb_pdata = {
 	.init_product_id	= 0x618E,
 	.nluns = 1,
 };
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-09-09 */
 
 #endif /* CONFIG_USB_ANDROID */
 
@@ -326,21 +328,23 @@ static void __init msm7x2x_map_io(void)
 
 #ifdef CONFIG_CACHE_L2X0
 	/* 7x27 has 256KB L2 cache:
-		64Kb/Way and 4-Way Associativity;
-		R/W latency: 3 cycles;
-		evmon/parity/share disabled. */
+	 * 64Kb/Way and 4-Way Associativity;
+	 * R/W latency: 3 cycles;
+	 * evmon/parity/share disabled.
+	 */
 	l2x0_init(MSM_L2CC_BASE, 0x00068012, 0xfe000000);
 #endif
 }
 
 MACHINE_START(MSM7X27_THUNDERC, "THUNDER Verizone board (LGE VS660)")
+#endif
 #ifdef CONFIG_MSM_DEBUG_UART
 	.phys_io        = MSM_DEBUG_UART_PHYS,
 	.io_pg_offst    = ((MSM_DEBUG_UART_BASE) >> 18) & 0xfffc,
 #endif
-	.boot_params	= PHYS_OFFSET + 0x100,
+	.boot_params		= PHYS_OFFSET + 0x100,
 	.map_io			= msm7x2x_map_io,
 	.init_irq		= msm7x2x_init_irq,
-	.init_machine	= msm7x2x_init,
+	.init_machine		= msm7x2x_init,
 	.timer			= &msm_timer,
 MACHINE_END

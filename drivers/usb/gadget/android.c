@@ -86,8 +86,8 @@ MODULE_LICENSE("GPL");
 MODULE_VERSION("1.0");
 
 /* product id */
+static u16 product_id;
 #ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET
-u16 product_id;
 int android_set_pid(const char *val, struct kernel_param *kp);
 #else
 static int android_set_pid(const char *val, struct kernel_param *kp);
@@ -121,17 +121,17 @@ MODULE_PARM_DESC(product_id, "USB device product id");
 int mtp_enable_flag = 0;
 #endif
 
+/*LGE_CHANGED yongman.kwon@lge.com UMS_PID*/
+#define LGE_UMS_PID				0x61C6
+
 #ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
 /* Autorun dedicated UMS pid */
 #define LGE_UMS_PID				0x61C6
 #define LGE_AUTORUN_PID			0x61C8
-/* Charging only mode pid */
-#define LGE_CHARGE_ONLY_PID		0xFFFF
 
 static u16 autorun_user_mode;
 static int android_set_usermode(const char *val, struct kernel_param *kp);
-static int android_get_usermode(char *buffer, struct kernel_param *kp);
-module_param_call(user_mode, android_set_usermode, android_get_usermode,
+module_param_call(user_mode, android_set_usermode, param_get_string,
 					&autorun_user_mode, 0664);
 MODULE_PARM_DESC(user_mode, "USB Autorun user mode");
 #endif
@@ -415,7 +415,7 @@ static int is_iad_enabled(void)
 #endif
 #ifdef CONFIG_USB_ANDROID_CDC_ECM
 			case ANDROID_CDC_ECM:
-				return 2;
+				return 3;
 #endif
 #ifdef CONFIG_USB_ANDROID_RMNET
 			case ANDROID_RMNET:
@@ -467,8 +467,6 @@ static int lge_bind_config(void)
 	int ret = 0;
 	struct android_dev *dev = _android_dev;
 
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-04, LG Factory Cable Detection using WQ */
-#ifndef CONFIG_USB_SUPPORT_LGE_ANDROID_FACTORY_CABLE_WQ
 	if (product_id != LGE_FACTORY_USB_PID) {
 		ret = lge_detect_factory_cable();
 		if (ret) {
@@ -477,8 +475,6 @@ static int lge_bind_config(void)
 			device_desc.idProduct = __constant_cpu_to_le16(product_id);
 		}
 	}
-#endif
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-11-04 */	
 
 	if (product_id == LGE_FACTORY_USB_PID) {
 		serial_number[0] = '\0';
@@ -808,17 +804,6 @@ static int android_set_usermode(const char *val, struct kernel_param *kp)
 	return ret;
 }
 
-static int android_get_usermode(char *buffer, struct kernel_param *kp)
-{
-	int ret;
-
-	mutex_lock(&_android_dev->lock);
-	ret = sprintf(buffer, "%d", autorun_user_mode);
-	mutex_unlock(&_android_dev->lock);
-
-	return ret;
-}
-
 int get_autorun_user_mode(void)
 {
 	return autorun_user_mode;
@@ -905,9 +890,8 @@ static int adb_enable_open(struct inode *ip, struct file *fp)
 	int ret = 0;
 
 #ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
-	if ((product_id == LGE_AUTORUN_PID) ||
-			(product_id == LGE_CHARGE_ONLY_PID) ) {
-		pr_info("%s: adb enabling on Autorun or Charge only mode, Ignore it\n",
+	if (product_id == LGE_AUTORUN_PID) {
+		pr_info("%s: adb enabling on Autorun mode, Ignore it\n",
 				__func__);
 
 		dev->adb_enabled = 1;
@@ -970,9 +954,8 @@ static int adb_enable_release(struct inode *ip, struct file *fp)
 	int ret = 0;
 
 #ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
-	if ((product_id == LGE_AUTORUN_PID) ||
-			(product_id == LGE_CHARGE_ONLY_PID) ) {
-		pr_info("%s: adb disabling on Autorun or Charge only mode, Ignore it\n",
+	if (product_id == LGE_AUTORUN_PID) {
+		pr_info("%s: adb disabling on Autorun mode, Ignore it\n",
 				__func__);
 
 		dev->adb_enabled = 0;
@@ -1127,22 +1110,9 @@ int mtp_enable_release(struct inode *ip, struct file *fp)
 {
 	struct android_dev *dev = _android_dev;
 	int ret = 0;
-
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-11-26, For Charge only mode with MTP driver */
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
-	if (product_id == LGE_CHARGE_ONLY_PID) {
-		pr_info("%s: mtp disable on Charge only mode, not back to modem mode\n", __func__);
-		mutex_lock(&dev->lock);
-		dev->mtp_enabled = 0;
-		mtp_enable_flag = 0;
-		mutex_unlock(&dev->lock);
-		return 0;
-	}
-#endif
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-11-26 */
-
 #ifdef CONFIG_USB_GADGET_SUPPORT_LGE_FACTORY_USB
-    if(product_id == 0x6000 || product_id == 0x6001) {
+    if(product_id == 0x6000 || product_id == 0x6001)
+    {
       dev->mtp_enabled = 0;
       return 0;
     }
@@ -1157,18 +1127,20 @@ int mtp_enable_release(struct inode *ip, struct file *fp)
 
 	dev->mtp_enabled = 0;
 	mtp_enable_flag = 0;
-
-
-/* LGE_CHANGES_S [younsuk.song@lge.com] 2010-08-01, Handle exceptional case: this is local depence code. */
-	if (product_id == LG_MTP_PID) {
+	
+	/* LGE_CHANGES_S [younsuk.song@lge.com] 2010-08-01, Handle exceptional case: this is local depence code. */
+	if (LG_MTP_PID == product_id)
+	{
 		product_id = LGE_DEFAULT_PID;
 	}
 
-	if (android_validate_product_id(product_id) == NULL) {
+	if (NULL == android_validate_product_id(product_id))
+	{
 		pr_info("mtp release error: invalid product id : 0x%x", product_id);
 		product_id = LGE_DEFAULT_PID;
 	}
-/* LGE_CHANGES_E [younsuk.song@lge.com] 2010-08-01, Handle exceptional case: this is local depense code. */
+
+	/* LGE_CHANGES_E [younsuk.song@lge.com] 2010-08-01, Handle exceptional case: this is local depense code. */
 
 	if (product_id)
 		ret = android_switch_composition(product_id);

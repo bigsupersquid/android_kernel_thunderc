@@ -2,10 +2,14 @@
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
 <<<<<<< HEAD:arch/arm/configs/iho_defconfig
+<<<<<<< HEAD:arch/arm/configs/iho_defconfig
 # Sat Jul 23 00:07:29 2011
 =======
 # Sat Jul 16 19:58:21 2011
 >>>>>>> cfbb92f... Include the interactive governor.:.config
+=======
+# Mon Jul 18 03:25:09 2011
+>>>>>>> 9a84606... First pass at using USB gadget framework.:.config
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1453,7 +1457,11 @@ CONFIG_USB_ARCH_HAS_EHCI=y
 #
 CONFIG_USB_GADGET=y
 CONFIG_USB_GADGET_DEBUG_FILES=y
+<<<<<<< HEAD:arch/arm/configs/iho_defconfig
 CONFIG_USB_GADGET_VBUS_DRAW=500
+=======
+CONFIG_USB_GADGET_VBUS_DRAW=2
+>>>>>>> 9a84606... First pass at using USB gadget framework.:.config
 CONFIG_USB_GADGET_SELECTED=y
 # CONFIG_USB_GADGET_AT91 is not set
 # CONFIG_USB_GADGET_ATMEL_USBA is not set
@@ -1503,7 +1511,11 @@ CONFIG_USB_SUPPORT_LGE_GADGET_CDMA=y
 # CONFIG_USB_SUPPORT_LGE_FACTORY_USB is not set
 CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID=y
 CONFIG_USB_GADGET_LG_MTP_DRIVER=y
+<<<<<<< HEAD:arch/arm/configs/iho_defconfig
 # CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN is not set
+=======
+CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN=y
+>>>>>>> 9a84606... First pass at using USB gadget framework.:.config
 # CONFIG_USB_SUPPORT_LGE_ANDROID_NMEA_FIX is not set
 CONFIG_USB_SUPPORT_LGE_ANDROID_ECM_FIX=y
 

@@ -94,6 +94,17 @@
 #define BL_POWER_SUSPEND	0
 #define BL_POWER_RESUME		1
 
+/* lcd & backlight */
+#define GPIO_LCD_BL_EN         82
+#define GPIO_BL_I2C_SCL                88
+#define GPIO_BL_I2C_SDA                89
+#define GPIO_LCD_VSYNC_O       97
+#define GPIO_LCD_MAKER_LOW     101
+#define GPIO_LCD_RESET_N       102
+
+#define BL_POWER_SUSPEND       0
+#define BL_POWER_RESUME        1
+
 /* bluetooth gpio pin */
 enum {
 	BT_WAKE         = 42,
@@ -125,4 +136,5 @@ void camera_power_mutex_unlock(void);
 
 struct device* thunderc_backlight_dev(void);
 void thunderc_pwrsink_resume(void);
+int camera_status(void);
 #endif
