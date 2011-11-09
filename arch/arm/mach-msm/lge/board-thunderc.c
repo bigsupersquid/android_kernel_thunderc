@@ -137,13 +137,13 @@ struct usb_composition usb_func_composition[] = {
     },
 #endif
 #ifdef CONFIG_USB_ANDROID_CDC_ECM
-    {
-		/* LG CDC-ECM Driver for matching LG Android Net driver */
-        .product_id         = 0x61A2,
-        .functions          = 0x27384,
-        .adb_product_id     = 0x61A1,
-	    .adb_functions	    = 0x127384,
-    },
+	{
+		/* LG Rmnet Driver for matching LG Android Net driver */
+		.product_id         = 0x61A2,
+		.functions          = 0x27384,
+		.adb_product_id     = 0x61A1,
+		.adb_functions	    = 0x128A,
+	},
 #endif
 /* LGE_CHANGE_S : For Autorun */
 #ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN 
