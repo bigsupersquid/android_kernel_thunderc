@@ -93,7 +93,7 @@ wlan_status lg_diag_req_wlan_status={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 /* LGE_CHANGES_E, [dongp.kim@lge.com], 2010-01-10, <LGE_FACTORY_TEST_MODE for WLAN RF Test > */
 
 /* LGE_MERGE_S [sunmyoung.lee@lge.com] 2010-07-15. SMS UTS Test */
-udm_sms_status_new lg_diag_req_udm_sms_status_new = {0};
+udm_sms_status_new lg_diag_req_udm_sms_status_new;
 /* LGE_MERGE_E [sunmyoung.lee@lge.com] 2010-07-15. SMS UTS Test */
 
 uint16 lg_diag_req_pkt_length;

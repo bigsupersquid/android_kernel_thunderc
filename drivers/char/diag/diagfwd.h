@@ -46,3 +46,4 @@ extern unsigned char diag_debug_buf[1024];
 static spinlock_t diagchar_smd_lock;
 static spinlock_t diagchar_smd_qdsp_lock;
 #endif
+

@@ -1622,6 +1622,7 @@ static int do_ack_status(struct fsg_dev *fsg, struct fsg_buffhd *bh, u8 ack)
 		buf[0] = SUB_ACK_STATUS_UMS;
 	else if(ack == SUB_ACK_STATUS_ASK)
 		buf[0] = SUB_ACK_STATUS_ASK;
+
 	return 1;
 }
 static int do_get_sw_rev(struct fsg_dev *fsg, struct fsg_buffhd *bh)
@@ -1822,25 +1823,6 @@ static int do_read_header(struct fsg_dev *fsg, struct fsg_buffhd *bh)
 	buf[0] = 0x01;		/* 2048 bytes of user data, rest is EC */
 	store_cdrom_address(&buf[4], msf, lba);
 	return 8;
-}
-/* LGE_CHANGE_S [adwardk.kim@lge.com] 2010-08-07 */
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
-static void store_cdrom_address(u8 *dest, int msf, u32 addr)
-{
-	if (msf) {
-		/* Convert to Minutes-Seconds-Frames */
-		addr >>= 2;		/* Convert to 2048-byte frames */
-		addr += 2*75;		/* Lead-in occupies 2 seconds */
-		dest[3] = addr % 75;	/* Frames */
-		addr /= 75;
-		dest[2] = addr % 60;	/* Seconds */
-		addr /= 60;
-		dest[1] = addr;		/* Minutes */
-		dest[0] = 0;		/* Reserved */
-	} else {
-		/* Absolute sector */
-		put_unaligned_be32(addr, dest);
-	}
 }
 
 static int do_read_toc(struct fsg_dev *fsg, struct fsg_buffhd *bh)
@@ -2248,33 +2230,6 @@ static int finish_reply(struct fsg_dev *fsg)
 					&bh->inreq_busy, &bh->state);
 			fsg->next_buffhd_to_fill = bh->next;
 		} else {
-			DBG(fsg, "finish_reply(1-2)");
-/* LGE_CHANGE_S [adwardk.kim@lge.com] 2010-08-07 */
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
-			if (fsg->autorun_enable) {
-				start_transfer(fsg, fsg->bulk_in, bh->inreq,
-						&bh->inreq_busy, &bh->state);
-				fsg->next_buffhd_to_fill = bh->next;
-			} else {
-				if (can_stall) {
-					bh->state = BUF_STATE_EMPTY;
-					for (i = 0; i < NUM_BUFFERS; ++i) {
-						struct fsg_buffhd
-							*bh = &fsg->buffhds[i];
-						while (bh->state != BUF_STATE_EMPTY) {
-							rc = sleep_thread(fsg);
-							if (rc)
-								return rc;
-						}
-					}
-					rc = halt_bulk_in_endpoint(fsg);
-				} else {
-					start_transfer(fsg, fsg->bulk_in, bh->inreq,
-							&bh->inreq_busy, &bh->state);
-					fsg->next_buffhd_to_fill = bh->next;
-				}
-			}
-#else
 			if (can_stall) {
 				bh->state = BUF_STATE_EMPTY;
 				for (i = 0; i < NUM_BUFFERS; ++i) {
@@ -3185,9 +3140,9 @@ static void adjust_wake_lock(struct fsg_dev *fsg)
 		}
 	}
 
-	if (ums_active) {
+	if (ums_active)
 		wake_lock(&fsg->wake_lock);
-	} else
+	else
 		wake_unlock(&fsg->wake_lock);
 
 	spin_unlock_irqrestore(&fsg->lock, flags);
@@ -4104,3 +4059,4 @@ err_switch_dev_register:
 
 	return rc;
 }
+

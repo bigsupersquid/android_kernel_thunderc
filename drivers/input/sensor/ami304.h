@@ -21,7 +21,6 @@
 #define AMI304_H
 
 #include <linux/ioctl.h>
-//#include <asm-arm/arch/regs-gpio.h>
 
 //new Addr=0x0E(Low), old Addr=0x0F(High)
 #define AMI304_I2C_ADDRESS 			0x0E  
@@ -30,6 +29,7 @@
 #define AMI304_REG_CTRL1			0x1B
 #define AMI304_REG_CTRL2			0x1C
 #define AMI304_REG_CTRL3			0x1D
+#define AMI304_REG_CTRL4			0x5C
 #define AMI304_REG_DATAXH			0x10
 #define AMI304_REG_DATAXL			0x11
 #define AMI304_REG_DATAYH			0x12
@@ -152,3 +152,4 @@
 //#define AMIT_BIT_PEDOMETER			(1<<AMIT_PEDOMETER_SENSOR)
 
 #endif
+

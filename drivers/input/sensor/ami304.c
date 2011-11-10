@@ -35,6 +35,8 @@
 #define AMI304_DEBUG_PRINT	1
 #define AMI304_ERROR_PRINT	1
 
+//#define AMI304_TEST		1
+
 /* AMI304 Debug mask value
  * usage: echo [mask_value] > /sys/module/ami304/parameters/debug_mask
  * All		: 127
@@ -49,7 +51,6 @@ enum {
 	AMI304_DEBUG_DEV_DEBOUNCE	= 1U << 4,
 	AMI304_DEBUG_GEN_INFO		= 1U << 5,
 	AMI304_DEBUG_INTR_INFO		= 1U << 6,
-	AMI304_DEBUG_DELAY_SETTING		= 1U << 7,
 };
 
 static unsigned int ami304_debug_mask = AMI304_DEBUG_USER_ERROR;
@@ -93,7 +94,7 @@ static unsigned short normal_i2c[] = { AMI304_I2C_ADDRESS, I2C_CLIENT_END };
 /* Insmod parameters */
 I2C_CLIENT_INSMOD;
 
-struct _ami302_data {
+struct _ami304_data {
 	rwlock_t lock;
 	int chipset;
 	int mode;
@@ -130,7 +131,7 @@ struct _ami304mid_data {
 
 struct ami304_i2c_data {
 	struct input_dev *input_dev;
-	struct i2c_client client;
+	struct i2c_client *client;
 };
 
 static atomic_t dev_open_count;
@@ -1180,18 +1181,14 @@ static int ami304hal_open(struct inode *inode, struct file *file)
 	atomic_inc(&hal_open_count);
 	if (AMI304_DEBUG_FUNC_TRACE & ami304_debug_mask)
 		AMID("Open device node:ami304hal %d times.\n", atomic_read(&hal_open_count));
-
 	return 0;
 }
 
 static int ami304hal_release(struct inode *inode, struct file *file)
 {
-	int ret;
-	ret = atomic_dec_and_test(&hal_open_count);
-
+	atomic_dec(&hal_open_count);
 	if (AMI304_DEBUG_FUNC_TRACE & ami304_debug_mask)
 		AMID("Release ami304hal, remainder is %d times.\n", atomic_read(&hal_open_count));
-
 	return 0;
 }
 
@@ -1599,8 +1596,8 @@ static const struct i2c_device_id ami304_ids[] = {
 
 #if defined(CONFIG_PM)
 static struct dev_pm_ops ami304_pm_ops = {
-       .suspend = ami304_suspend,
-       .resume = ami304_resume,
+	.suspend = ami304_suspend,
+	.resume = ami304_resume,
 };
 #endif
 
@@ -1669,3 +1666,4 @@ MODULE_AUTHOR("Kyle K.Y. Chen");
 MODULE_DESCRIPTION("AMI304 MI-Sensor driver without DRDY");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(DRIVER_VERSION);
+

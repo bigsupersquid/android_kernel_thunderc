@@ -157,6 +157,10 @@ static const char longname[] = "Gadget Android";
 static u8 hostaddr[ETH_ALEN];
 #endif
 
+#if defined(CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID)
+void msm_get_MEID_type(char *sMeid);
+#endif
+
 /* Default vendor ID, overridden by platform data */
 #define VENDOR_ID		0x18D1
 
@@ -415,7 +419,7 @@ static int is_iad_enabled(void)
 #endif
 #ifdef CONFIG_USB_ANDROID_CDC_ECM
 			case ANDROID_CDC_ECM:
-				return 3;
+				return 2;
 #endif
 #ifdef CONFIG_USB_ANDROID_RMNET
 			case ANDROID_RMNET:
@@ -533,7 +537,41 @@ static int  android_bind(struct usb_composite_dev *cdev)
 	struct usb_composition *func;
 #endif
 
+#if defined(CONFIG_USB_ANDROID_CDC_ECM) || defined(CONFIG_USB_ANDROID_RNDIS)
+#if defined(CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID)
+	char meid[15];
+	char temp_buf[3];
+	unsigned long tmp_int;
+#endif
+#endif
+
 	pr_debug("android_bind\n");
+
+#if defined(CONFIG_USB_SUPPORT_LGE_SERIAL_FROM_ARM9_MEID)
+	//hostaddr;
+	memset(meid, 0, 15);
+	msm_get_MEID_type(meid);
+
+	// LGE OUI
+	hostaddr[0] = 0x00;
+	hostaddr[1] = 0x1c;
+	hostaddr[2] = 0x62;
+
+	temp_buf[2] = 0;
+
+	memcpy(temp_buf, meid+8, 2);
+	tmp_int = simple_strtoul(temp_buf, NULL, 16);
+	hostaddr[3] = tmp_int;
+
+	memcpy(temp_buf, meid+10, 2);
+	tmp_int = simple_strtoul(temp_buf, NULL, 16);
+	hostaddr[4] = tmp_int;
+
+	memcpy(temp_buf, meid+12, 2);
+	tmp_int = simple_strtoul(temp_buf, NULL, 16);
+	hostaddr[5] = tmp_int;
+
+#endif
 
 	/* Allocate string descriptor numbers ... note that string
 	 * contents can be overridden by the composite_dev glue.
@@ -712,17 +750,6 @@ static int android_switch_composition(u16 pid)
 	struct usb_composition *func;
 	int ret;
 
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-09-16, For charge only mode */
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_AUTORUN
-	if (pid == LGE_CHARGE_ONLY_PID) {
-		product_id = pid;
-		/* If we are in charge only pid, disconnect android gadget */
-		usb_gadget_disconnect(dev->gadget);
-		return 0;
-	}
-#endif
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-09-16 */
-
 	/* Validate the prodcut id */
 	func = android_validate_product_id(pid);
 	if (!func) {
@@ -744,25 +771,6 @@ static int android_switch_composition(u16 pid)
 
 	return ret;
 }
-
-/* LGE_CHANGE_S [hyunhui.park@lge.com] 2010-09-19, Detection of factory cable using wq */
-/* We use wrapper function instead of removing "static"
- * at android_switch_composition().
- */
-#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_FACTORY_CABLE_WQ
-int android_switch_composition_ext(u16 pid)
-{
-	return android_switch_composition(pid);
-}
-EXPORT_SYMBOL(android_switch_composition_ext);
-
-int android_get_pid_ext(void)
-{
-	return product_id;
-}
-EXPORT_SYMBOL(android_get_pid_ext);
-#endif
-/* LGE_CHANGE_E [hyunhui.park@lge.com] 2010-09-19 */
 
 static ssize_t android_remote_wakeup(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
@@ -1305,3 +1313,4 @@ static void __exit cleanup(void)
 	_android_dev = NULL;
 }
 module_exit(cleanup);
+
