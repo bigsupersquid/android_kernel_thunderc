@@ -84,3 +84,5 @@ kernel/config_data.h
 arch/arm/kernel/vmlinux.lds
 kernel/timeconst.h
 
+mkboot/*
+zip/*
