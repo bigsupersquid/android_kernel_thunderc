@@ -1192,26 +1192,26 @@ static int32_t isx005_set_brightness(int8_t brightness)
 	case 2:
 		rc = isx005_i2c_write(isx005_client->addr,
 				0x0060, 0x80, BYTE_LEN);
-		if (rc < 0)
-			return rc;
+		if(rc<0)
+			return rc;	
 
 		rc = isx005_i2c_write(isx005_client->addr,
 				0x0061, 0x70, BYTE_LEN);
-		if (rc < 0)
-			return rc;
+		if(rc<0)
+			return rc;	
 
 		break;
 
 	case 3:
-		rc = isx005_i2c_write(isx005_client->addr,
+		rc = isx005_i2c_write(isx005_client->addr,				
 				0x0060, 0xCD, BYTE_LEN);
-		if (rc < 0)
-			return rc;
+		if(rc<0)
+			return rc;	
 
 		rc = isx005_i2c_write(isx005_client->addr,
 				0x0061, 0x80, BYTE_LEN);
-		if (rc < 0)
-			return rc;
+		if(rc<0)
+		return rc;	
 
 		break;
 
