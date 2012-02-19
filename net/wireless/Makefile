@@ -1,13 +1,62 @@
-obj-$(CONFIG_WIRELESS_EXT) += wext.o
-obj-$(CONFIG_CFG80211) += cfg80211.o
-obj-$(CONFIG_LIB80211) += lib80211.o
-obj-$(CONFIG_LIB80211_CRYPT_WEP) += lib80211_crypt_wep.o
-obj-$(CONFIG_LIB80211_CRYPT_CCMP) += lib80211_crypt_ccmp.o
-obj-$(CONFIG_LIB80211_CRYPT_TKIP) += lib80211_crypt_tkip.o
+#
+# Makefile for the Linux Wireless network device drivers.
+#
 
-cfg80211-y += core.o sysfs.o radiotap.o util.o reg.o scan.o nl80211.o
-cfg80211-y += mlme.o ibss.o sme.o chan.o
-cfg80211-$(CONFIG_CFG80211_DEBUGFS) += debugfs.o
-cfg80211-$(CONFIG_WIRELESS_EXT) += wext-compat.o wext-sme.o
+obj-$(CONFIG_IPW2100) += ipw2x00/
+obj-$(CONFIG_IPW2200) += ipw2x00/
 
-ccflags-y += -D__CHECK_ENDIAN__
+obj-$(CONFIG_HERMES)		+= orinoco/
+
+obj-$(CONFIG_AIRO)		+= airo.o
+obj-$(CONFIG_AIRO_CS)		+= airo_cs.o airo.o
+
+obj-$(CONFIG_ATMEL)             += atmel.o
+obj-$(CONFIG_PCI_ATMEL)         += atmel_pci.o 
+obj-$(CONFIG_PCMCIA_ATMEL)      += atmel_cs.o
+
+obj-$(CONFIG_AT76C50X_USB)      += at76c50x-usb.o
+
+obj-$(CONFIG_PRISM54)		+= prism54/
+
+obj-$(CONFIG_HOSTAP)		+= hostap/
+obj-$(CONFIG_B43)		+= b43/
+obj-$(CONFIG_B43LEGACY)		+= b43legacy/
+obj-$(CONFIG_ZD1211RW)		+= zd1211rw/
+obj-$(CONFIG_RTL8180)		+= rtl818x/
+obj-$(CONFIG_RTL8187)		+= rtl818x/
+
+# 16-bit wireless PCMCIA client drivers
+obj-$(CONFIG_PCMCIA_RAYCS)	+= ray_cs.o
+obj-$(CONFIG_PCMCIA_WL3501)	+= wl3501_cs.o
+
+obj-$(CONFIG_USB_NET_RNDIS_WLAN)	+= rndis_wlan.o
+
+obj-$(CONFIG_USB_ZD1201)	+= zd1201.o
+obj-$(CONFIG_LIBERTAS)		+= libertas/
+
+obj-$(CONFIG_LIBERTAS_THINFIRM)	+= libertas_tf/
+
+obj-$(CONFIG_ADM8211)	+= adm8211.o
+
+obj-$(CONFIG_MWL8K)	+= mwl8k.o
+
+obj-$(CONFIG_IWLWIFI)	+= iwlwifi/
+obj-$(CONFIG_RT2X00)	+= rt2x00/
+
+obj-$(CONFIG_P54_COMMON)	+= p54/
+
+obj-$(CONFIG_ATH_COMMON)	+= ath/
+
+obj-$(CONFIG_MAC80211_HWSIM)	+= mac80211_hwsim.o
+
+obj-$(CONFIG_WL12XX)	+= wl12xx/
+
+obj-$(CONFIG_IWM)	+= iwmc3200wifi/
+
+obj-$(CONFIG_BCM4329)	+= bcm4329/
+
+#LGE_CHANGES_S, [jisung.yang@lge.com], 2010-04-24, <Add BCM4325>
+obj-$(CONFIG_BCM4325)	+= bcm4325/
+obj-$(CONFIG_BRCM_USE_STATIC_BUF)	+= bcm4325/
+#LGE_CHANGES_E, [jisung.yang@lge.com], 2010-04-24, <Add BCM4325>
+obj-$(CONFIG_LIBRA_SDIOIF)	+= libra/
