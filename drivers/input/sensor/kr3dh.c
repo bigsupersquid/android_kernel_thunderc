@@ -28,6 +28,7 @@
 #include <linux/input-polldev.h>
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
+#include <linux/slab.h>
 
 #include <mach/board_lge.h> // platform data
 #include <linux/akm8973.h>	// akm daemon ioctl set
@@ -41,6 +42,46 @@ struct early_suspend kr3dh_sensor_early_suspend;
 static void kr3dh_early_suspend(struct early_suspend *h);
 static void kr3dh_late_resume(struct early_suspend *h);
 #endif
+
+#if defined(CONFIG_PM_RUNTIME)
+#include <linux/pm_runtime.h>
+#endif
+
+#define KR3DH_DEBUG_PRINT	(1)
+#define KR3DH_ERROR_PRINT	(1)
+
+/* KR3DH Debug mask value
+ * usage: echo [mask_value] > /sys/module/kr3dh/parameters/debug_mask
+ * All		: 3
+ * No msg	: 0
+ * default	: 0
+ */
+enum {
+	KR3DH_DEBUG_FUNC_TRACE		= 1U << 0,
+	KR3DH_DEBUG_DEV_LOW_DATA		= 1U << 1,
+};
+
+static unsigned int kr3dh_debug_mask = 0;
+
+module_param_named(debug_mask, kr3dh_debug_mask, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
+
+#if defined(KR3DH_DEBUG_PRINT)
+#define KR3DHD(fmt, args...) \
+			printk(KERN_INFO "D[%-18s:%5d]" \
+				fmt, __FUNCTION__, __LINE__, ##args);
+#else
+#define KR3DHD(fmt, args...)	{};
+#endif
+
+#if defined(KR3DH_ERROR_PRINT)
+#define KR3DHE(fmt, args...) \
+			printk(KERN_ERR "E[%-18s:%5d]" \
+				fmt, __FUNCTION__, __LINE__, ##args);
+#else
+#define KR3DHE(fmt, args...)	{};
+#endif
+
 #define USE_WORK_QUEUE        0
 
 /** Maximum polled-device-reported g value */
@@ -101,16 +142,16 @@ struct {
 	unsigned int cutoff;
 	unsigned int mask;
 } odr_table[] = {
-	{ 3,	PM_NORMAL | ODR1000}, 
-	{ 10,	PM_NORMAL | ODR400}, 
-	{ 20,	PM_NORMAL | ODR100}, 
-	{ 100,	PM_NORMAL | ODR50}, 
-	{ 200,	ODR1000	| ODR10}, 
-	{ 500,	ODR1000 | ODR5}, 
-	{ 1000,	ODR1000 | ODR2}, 
-	{ 2000,	ODR1000 | ODR1}, 
-	{ 0,	ODR1000 | ODRHALF},
-};
+	{
+	3,	PM_NORMAL | ODR1000}, {
+	10,	PM_NORMAL | ODR400}, {
+	20,	PM_NORMAL | ODR100}, {
+	100,	PM_NORMAL | ODR50}, {
+	200,	ODR1000	| ODR10}, {
+	500,	ODR1000 | ODR5}, {
+	1000,	ODR1000 | ODR2}, {
+	2000,	ODR1000 | ODR1}, {
+	0,	ODR1000 | ODRHALF},};
 
 struct kr3dh_data {
 	struct i2c_client *client;
@@ -129,9 +170,6 @@ struct kr3dh_data {
 	u8 resume_state[5];
 };
 
-// LGE_CHANGE [dojip.kim@lge.com] 2010-08-19, x, y, z for sysfs
-static unsigned char kr3dh_xyz[3] = {0,};
-
 /*
  * Because misc devices can not carry a pointer from driver register to
  * open, we keep this global.  This limits the driver to a single instance.
@@ -144,17 +182,17 @@ static int kr3dh_i2c_read(struct kr3dh_data *kr, u8 * buf, int len)
 	int tries = 0;
 	struct i2c_msg msgs[] = {
 		{
-			.addr = kr->client->addr,
-			.flags = kr->client->flags & I2C_M_TEN,
-			.len = 1,
-			.buf = buf,
-		},
+		 .addr = kr->client->addr,
+		 .flags = kr->client->flags & I2C_M_TEN,
+		 .len = 1,
+		 .buf = buf,
+		 },
 		{
-			.addr = kr->client->addr,
-			.flags = (kr->client->flags & I2C_M_TEN) | I2C_M_RD,
-			.len = len,
-			.buf = buf,
-		},
+		 .addr = kr->client->addr,
+		 .flags = (kr->client->flags & I2C_M_TEN) | I2C_M_RD,
+		 .len = len,
+		 .buf = buf,
+		 },
 	};
 
 	do {
@@ -195,8 +233,7 @@ static int kr3dh_i2c_write(struct kr3dh_data *kr, u8 * buf, int len)
 	if (err != 1) {
 		dev_err(&kr->client->dev, "write transfer error\n");
 		err = -EIO;
-	} 
-	else {
+	} else {
 		err = 0;
 	}
 
@@ -352,11 +389,6 @@ static int kr3dh_get_acceleration_data(struct kr3dh_data *kr, int *xyz)
 	hw_d[1] = (int) (((acc_data[3]) << 8) | acc_data[2]);
 	hw_d[2] = (int) (((acc_data[5]) << 8) | acc_data[4]);
 
-	// LGE_CHANGE [dojip.kim@lge.com] 2010-08-19, x, y, z for sysfs
-	kr3dh_xyz[0] = (unsigned char)(hw_d[0] >> 4);
-	kr3dh_xyz[1] = (unsigned char)(hw_d[1] >> 4);
-	kr3dh_xyz[2] = (unsigned char)(hw_d[2] >> 4);
-
 	hw_d[0] = (hw_d[0] & 0x8000) ? (hw_d[0] | 0xFFFF0000) : (hw_d[0]);
 	hw_d[1] = (hw_d[1] & 0x8000) ? (hw_d[1] | 0xFFFF0000) : (hw_d[1]);
 	hw_d[2] = (hw_d[2] & 0x8000) ? (hw_d[2] | 0xFFFF0000) : (hw_d[2]);
@@ -372,7 +404,8 @@ static int kr3dh_get_acceleration_data(struct kr3dh_data *kr, int *xyz)
 	xyz[2] = ((kr->pdata->negate_z) ? (-hw_d[kr->pdata->axis_map_z])
 		  : (hw_d[kr->pdata->axis_map_z]));
 
-	//dev_info(&kr->client->dev, "(x, y ,z) = (%d, %d, %d)\n", xyz[0],xyz[1], xyz[2]);
+	if (KR3DH_DEBUG_DEV_LOW_DATA & kr3dh_debug_mask)
+		KR3DHD("x=%10d, y=%10d, z=%10d\n", xyz[0],xyz[1], xyz[2]);
 
 	return err;
 }
@@ -402,7 +435,8 @@ static int kr3dh_enable(struct kr3dh_data *kr)
 		}
 #if USE_WORK_QUEUE
 		schedule_delayed_work(&kr->input_work,
-			      msecs_to_jiffies(kr->pdata->poll_interval));
+				      msecs_to_jiffies(kr->
+						       pdata->poll_interval));
 #endif
 
 	}
@@ -442,35 +476,61 @@ static int kr3dh_misc_ioctl(struct inode *inode, struct file *file,
 	int err;
 	int interval;
 	struct kr3dh_data *kr = file->private_data;
+	
+#if defined(CONFIG_PM_RUNTIME)
+	pm_runtime_get_sync(&kr->client->dev);
+	msleep(11);
+#endif
 
 	switch (cmd) {
 	case KR3DH_IOCTL_GET_DELAY:
 		interval = kr->pdata->poll_interval;
-		if (copy_to_user(argp, &interval, sizeof(interval)))
+		if (copy_to_user(argp, &interval, sizeof(interval))){
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(&kr->client->dev);
+#endif
 			return -EFAULT;
+		}
 		break;
 
 	case KR3DH_IOCTL_SET_DELAY:
-		if (copy_from_user(&interval, argp, sizeof(interval)))
+		if (copy_from_user(&interval, argp, sizeof(interval))){
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(&kr->client->dev);
+#endif
 			return -EFAULT;
-		if (interval < 0 || interval > 200)
+		}
+		if (interval < 0 || interval > 200){
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(&kr->client->dev);
+#endif
 			return -EINVAL;
-
+		}
 		kr->pdata->poll_interval =
 		    max(interval, kr->pdata->min_interval);
 		err = kr3dh_update_odr(kr, kr->pdata->poll_interval);
 		/* TODO: if update fails poll is still set */
-		if (err < 0)
+		if (err < 0){
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(&kr->client->dev);
+#endif
 			return err;
-
+		}
 		break;
 
 	case KR3DH_IOCTL_SET_ENABLE:
-		if (copy_from_user(&interval, argp, sizeof(interval)))
+		if (copy_from_user(&interval, argp, sizeof(interval))){
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(&kr->client->dev);
+#endif
 			return -EFAULT;
-		if (interval > 1)
+		}
+		if (interval > 1){
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(&kr->client->dev);
+#endif
 			return -EINVAL;
-
+		}
 		if (interval)
 			kr3dh_enable(kr);
 		else
@@ -480,48 +540,81 @@ static int kr3dh_misc_ioctl(struct inode *inode, struct file *file,
 
 	case KR3DH_IOCTL_GET_ENABLE:
 		interval = atomic_read(&kr->enabled);
-		if (copy_to_user(argp, &interval, sizeof(interval)))
+		if (copy_to_user(argp, &interval, sizeof(interval))){
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(&kr->client->dev);
+#endif
 			return -EINVAL;
-
+		}
 		break;
 
 	case KR3DH_IOCTL_SET_G_RANGE:
-		if (copy_from_user(&buf, argp, 1))
+		if (copy_from_user(&buf, argp, 1)){
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(&kr->client->dev);
+#endif
 			return -EFAULT;
+		}
 		err = kr3dh_update_g_range(kr, arg);
-		if (err < 0)
+		if (err < 0){
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(&kr->client->dev);
+#endif
 			return err;
-
+		}
 		break;
 
 	case KR3DH_IOCTL_READ_ACCEL_XYZ:
 		err=kr3dh_get_acceleration_data(kr, buf);
-		if (err < 0)
+		if (err < 0){
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(&kr->client->dev);
+#endif
 				return err;
-
-		if (copy_to_user(argp, buf, sizeof(int)*3))
+		}
+		if (copy_to_user(argp, buf, sizeof(int)*3)){
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(&kr->client->dev);
+#endif
 			return -EINVAL;
-
+		}
+#if defined(CONFIG_PM_RUNTIME)
+		pm_runtime_put_sync(&kr->client->dev);
+#endif
 		return err;
 
 		break;
 
-	case AKMD2_TO_ACCEL_IOCTL_READ_XYZ:
+	case AKMD2_TO_ACCEL_IOCTL_READ_XYZ:	/* LGE_CHANGE [hyesung.shin@lge.com] on 2010-1-23, for <Sensor driver structure> */
 		err=kr3dh_get_acceleration_data(kr, buf);
-		if (err < 0)
+		if (err < 0){
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(&kr->client->dev);
+#endif
 				return err;
-
-		if (copy_to_user(argp, buf, sizeof(int)*3))
+		}
+		if (copy_to_user(argp, buf, sizeof(int)*3)){
+#if defined(CONFIG_PM_RUNTIME)
+			pm_runtime_put_sync(&kr->client->dev);
+#endif
 			return -EINVAL;
-
+		}
+#if defined(CONFIG_PM_RUNTIME)
+		pm_runtime_put_sync(&kr->client->dev);
+#endif
 		return err;
 
 		break;
 
 	default:
+#if defined(CONFIG_PM_RUNTIME)
+		pm_runtime_put_sync(&kr->client->dev);
+#endif
 		return -EINVAL;
 	}
-
+#if defined(CONFIG_PM_RUNTIME)
+	pm_runtime_put_sync(&kr->client->dev);
+#endif
 	return 0;
 }
 
@@ -661,41 +754,6 @@ static void kr3dh_input_cleanup(struct kr3dh_data *kr)
 	input_free_device(kr->input_dev);
 }
 
-// LGE_CHANGE_S [dojip.kim@lge.com] 2010-08-19, sysfs
-static ssize_t kr3dh_x_show(struct device *dev, struct device_attribute *attr,
-		char *buf)
-{
-	return sprintf(buf, "%d\n", kr3dh_xyz[0]);
-}
-
-static ssize_t kr3dh_y_show(struct device *dev, struct device_attribute *attr,
-		char *buf)
-{
-	return sprintf(buf, "%d\n", kr3dh_xyz[1]);
-}
-
-static ssize_t kr3dh_z_show(struct device *dev, struct device_attribute *attr,
-		char *buf)
-{
-	return sprintf(buf, "%d\n", kr3dh_xyz[2]);
-}
-
-static DEVICE_ATTR(x, S_IRUGO, kr3dh_x_show, NULL);
-static DEVICE_ATTR(y, S_IRUGO, kr3dh_y_show, NULL);
-static DEVICE_ATTR(z, S_IRUGO, kr3dh_z_show, NULL);
-
-static struct attribute *dev_attrs[] = {
-	&dev_attr_x.attr,
-	&dev_attr_y.attr,
-	&dev_attr_z.attr,
-	NULL
-};
-
-static struct attribute_group dev_attr_grp = {
-	.attrs = dev_attrs,
-};
-// LGE_CHANGE_E [dojip.kim@lge.com] 2010-08-19, sysfs
-
 static int kr3dh_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
 {
@@ -810,11 +868,11 @@ static int kr3dh_probe(struct i2c_client *client,
 
 	mutex_unlock(&kr->lock);
 
-	// LGE_CHANGE [dojip.kim@lge.com] 2010-08-19, sysfs
-	sysfs_create_group(&client->dev.kobj, &dev_attr_grp);
-
 	dev_info(&client->dev, "%s kr3dh: Accelerometer chip found\n", client->name);
 
+#if defined(CONFIG_PM_RUNTIME)
+	pm_runtime_enable(&client->dev);
+#endif
 	return 0;
 
 err4:
@@ -837,9 +895,6 @@ static int __devexit kr3dh_remove(struct i2c_client *client)
 {
 	/* TODO: revisit ordering here once _probe order is finalized */
 	struct kr3dh_data *kr = i2c_get_clientdata(client);
-
-	// LGE_CHANGE [dojip.kim@lge.com] 2010-08-19, sysfs
-	sysfs_remove_group(&client->dev.kobj, &dev_attr_grp);
 
 	misc_deregister(&kr3dh_misc_device);
 	kr3dh_input_cleanup(kr);
@@ -874,7 +929,23 @@ static int kr3dh_resume(struct device *device)
 	struct i2c_client *client = i2c_verify_client(device);
 	struct kr3dh_data *kr = i2c_get_clientdata(client);
 
-	kr->pdata->gpio_config(1);
+#if 0
+	int err = 0;
+
+	if (kr->on_before_suspend){
+
+		kr->pdata->gpio_config(1);
+
+		return kr3dh_enable(kr);
+	}
+
+	err =  kr3dh_hw_init(kr);
+	if (err < 0)
+		printk("%s i2c failed\n", __FUNCTION__);
+
+	return 0;
+#endif
+
 	return kr3dh_enable(kr);
 }
 
@@ -883,9 +954,59 @@ static int kr3dh_suspend(struct device *device)
 	struct i2c_client *client = i2c_verify_client(device);
 	struct kr3dh_data *kr = i2c_get_clientdata(client);
 
-	kr->pdata->gpio_config(0);
+#if 0
+	kr->on_before_suspend = atomic_read(&kr->enabled);
+
+	if (kr->on_before_suspend){
+		kr->pdata->gpio_config(0);
+	}
+#endif
+
 	return kr3dh_disable(kr);
 }
+#if defined(CONFIG_PM_RUNTIME)
+#define PM_BIT_MASK 0x1F
+#define KR3DH_SET_PM(x) ((x)&PM_BIT_MASK)
+static int kr3dh_runtime_suspend(struct device* dev)
+{
+	struct i2c_client* client = i2c_verify_client(dev);
+	struct kr3dh_data* kr = i2c_get_clientdata(client);
+	int err;
+	u8 ctrl = CTRL_REG1;
+	u8 buf[2];
+	
+	err = kr3dh_i2c_read(kr, &ctrl, 1);
+	if(err<0)
+		goto err_runtime_pm;
+	
+	buf[0] = CTRL_REG1;
+	buf[1] = KR3DH_SET_PM(ctrl);
+	err = kr3dh_i2c_write(kr, buf,1);
+	if(err<0)
+		goto err_runtime_pm;
+	
+	return 0;
+
+err_runtime_pm:
+	dev_err(&kr->client->dev, "soft power off fail: i2c error\n");
+	return err;
+	
+}
+static int kr3dh_runtime_resume(struct device* dev)
+{
+	struct i2c_client* client = i2c_verify_client(dev);
+	struct kr3dh_data* kr = i2c_get_clientdata(client);
+	int err;
+	u8 buf[2] = {CTRL_REG1, kr->resume_state[0]};
+	
+	err = kr3dh_i2c_write(kr, buf, 1);
+	if(err<0){
+		dev_err(&kr->client->dev, "soft power on fail: i2c error\n");
+		return err;
+	}
+	return 0;
+}
+#endif
 #endif
 
 static const struct i2c_device_id kr3dh_id[] = {
@@ -899,6 +1020,10 @@ MODULE_DEVICE_TABLE(i2c, kr3dh_id);
 static struct dev_pm_ops kr3dh_pm_ops = {
        .suspend = kr3dh_suspend,
        .resume = kr3dh_resume,
+#if defined(CONFIG_PM_RUNTIME)
+       .runtime_suspend = kr3dh_runtime_suspend,
+       .runtime_resume = kr3dh_runtime_resume,
+#endif
 };
 #endif
 

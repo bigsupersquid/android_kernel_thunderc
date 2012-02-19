@@ -18,8 +18,13 @@
 #include <linux/gpio_event.h>
 #include <linux/hrtimer.h>
 #include <linux/interrupt.h>
+#include <linux/slab.h>
 #include <linux/wakelock.h>
-#include <mach/gpio.h>
+//LGSI Thunder Upgrade : SLTATE HardKEy Enable saravanak.nachimuthu@lge.com
+#include <linux/delay.h>
+extern int key_touch_logging_status;
+extern void mtc_send_key_log_packet(unsigned long keycode, unsigned long state);
+//LGSI Thunder Upgrade : SLTATE HardKEy Enable saravanak.nachimuthu@lge.com
 
 struct gpio_kp {
 	struct gpio_event_input_devs *input_devs;
@@ -31,17 +36,9 @@ struct gpio_kp {
 	unsigned int key_state_changed:1;
 	unsigned int last_key_state_changed:1;
 	unsigned int some_keys_pressed:2;
+	unsigned int disabled_irq:1;
 	unsigned long keys_pressed[0];
 };
-
-/* LGE_CHANGE [james.jang@lge.com] 2010-06-12 */
-#if defined(CONFIG_LGE_DIAGTEST)
-/* for SLATE */
-extern void mtc_send_key_log_packet(unsigned long keycode, unsigned long state);
-
-/* fot MTC */
-extern void ats_eta_mtc_key_logging(int scancode, unsigned char keystate);
-#endif
 
 static void clear_phantom_key(struct gpio_kp *kp, int out, int in)
 {
@@ -134,12 +131,18 @@ static void report_key(struct gpio_kp *kp, int key_index, int out, int in)
 					out, in, mi->output_gpios[out],
 					mi->input_gpios[in], pressed);
 			input_report_key(kp->input_devs->dev[dev], keycode, pressed);
+			/* TODO temporary code for DEBUG
+			 * 2010-04-19 younchan.kim@lge.com
+			 */
+			printk("gpiomatrix: key %x, %d-%d (%d-%d) "
+					"changed to %d\n", keycode,
+					out, in, mi->output_gpios[out],
+					mi->input_gpios[in], pressed);
+//LGSI Thunder Upgrade : SLTATE HardKEy Enable saravanak.nachimuthu@lge.com
+			if(key_touch_logging_status == 1)
+				mtc_send_key_log_packet((unsigned long)keycode, (unsigned long)!pressed);
+//LGSI Thunder Upgrade : SLTATE HardKEy Enable saravanak.nachimuthu@lge.com
 
-/* LGE_CHANGE [james.jang@lge.com] 2010-06-12 */
-#if defined(CONFIG_LGE_DIAGTEST)
-			mtc_send_key_log_packet((unsigned long)keycode, (unsigned long)!pressed);
-			ats_eta_mtc_key_logging((int)keycode, (char)pressed);
-#endif
 		}
 	}
 }
@@ -231,8 +234,12 @@ static irqreturn_t gpio_keypad_irq_handler(int irq_in, void *dev_id)
 	struct gpio_event_matrix_info *mi = kp->keypad_info;
 	unsigned gpio_keypad_flags = mi->flags;
 
-	if (!kp->use_irq) /* ignore interrupt while registering the handler */
+	if (!kp->use_irq) {
+		/* ignore interrupt while registering the handler */
+		kp->disabled_irq = 1;
+		disable_irq_nosync(irq_in);
 		return IRQ_HANDLED;
+	}
 
 	for (i = 0; i < mi->ninputs; i++)
 		disable_irq_nosync(gpio_to_irq(mi->input_gpios[i]));
@@ -288,6 +295,10 @@ static int gpio_keypad_request_irqs(struct gpio_kp *kp)
 				"irq %d\n", mi->input_gpios[i], irq);
 		}
 		disable_irq(irq);
+		if (kp->disabled_irq) {
+			kp->disabled_irq = 0;
+			enable_irq(irq);
+		}
 	}
 	return 0;
 
@@ -351,17 +362,17 @@ int gpio_event_matrix_func(struct gpio_event_input_devs *input_devs,
 		}
 
 		for (i = 0; i < mi->noutputs; i++) {
-			if (gpio_cansleep(mi->output_gpios[i])) {
-				pr_err("gpiomatrix: unsupported output gpio %d,"
-					" can sleep\n", mi->output_gpios[i]);
-				err = -EINVAL;
-				goto err_request_output_gpio_failed;
-			}
 			err = gpio_request(mi->output_gpios[i], "gpio_kp_out");
 			if (err) {
 				pr_err("gpiomatrix: gpio_request failed for "
 					"output %d\n", mi->output_gpios[i]);
 				goto err_request_output_gpio_failed;
+			}
+			if (gpio_cansleep(mi->output_gpios[i])) {
+				pr_err("gpiomatrix: unsupported output gpio %d,"
+					" can sleep\n", mi->output_gpios[i]);
+				err = -EINVAL;
+				goto err_output_gpio_configure_failed;
 			}
 			if (mi->flags & GPIOKPF_DRIVE_INACTIVE)
 				err = gpio_direction_output(mi->output_gpios[i],
