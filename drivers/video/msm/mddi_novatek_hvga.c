@@ -122,7 +122,7 @@ static struct display_table mddi_novatek_position_table[] = {
 	{0x2b03, 1, {0x01df}}, // YEA, 480-1
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
-
+//LGSI_CHANGE_S[pranav.s]
 #if 0
 static struct display_table mddi_novatek_display_on[] = {
 	// Display on sequence
@@ -135,7 +135,7 @@ static struct display_table mddi_novatek_display_on[] = {
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
 #endif
-
+//LGSI_CHANGE_E[pranav.s]
 #if 0
 static struct display_table2 mddi_novatek_img[] = {
 	{0x2c, 16384, {}},
@@ -896,12 +896,16 @@ static struct display_table mddi_novatek_initialize[] = {
 	//{0x1100, 1, {0x0000}}, // sleep out
 	//{REGFLAG_DELAY, 100, {}},
 #endif
+	{0x3B00, 1, {0x0043}}, // RGB Setup
+	{0x3B01, 1, {0x0004}},
+	{0x3B02, 1, {0x0004}},
+	{0x3B03, 1, {0x0008}},
+	{0x3B04, 1, {0x0007}},
 	/* LGE_CHANGE [james.jang@lge.com] 2010-06-18, off LEDPWM(7Fh -> 00h) */
 	//{0x5100, 1, {0x007F}}, // Output LEDPWM=50% Duty
 	{0x5100, 1, {0x0000}}, // Output LEDPWM=0% Duty
 	{0x5300, 1, {0x002C}}, // Output LEDPWM=50% Duty
 
-	/* LGE_CHANGE_S [dojip.kim@lge.com] 2010-09-11, set the address */
 	// set horizontal address 
 	{0x2a00, 1, {0x0000}}, // XSA
 	{0x2a01, 1, {0x0000}}, // XSA
@@ -912,12 +916,13 @@ static struct display_table mddi_novatek_initialize[] = {
 	{0x2b01, 1, {0x0000}}, // YSA
 	{0x2b02, 1, {0x0000}}, // YEA
 	{0x2b03, 1, {0x01df}}, // YEA, 480-1
-	/* LGE_CHANGE_E [dojip.kim@lge.com] 2010-09-11 */
 
 	{0x3600, 1, {0x0008}}, // Set RGB
-	{0x3A00, 1, {0x0055}}, // Set RGB565
 	{0x3800, 1, {0x0000}}, // Set Idle Mode Off
+	{0x3A00, 1, {0x0055}}, // Set RGB565
+
 	{0x3500, 1, {0x0000}}, // TE On, Vsync On
+
 	{0x2900, 1, {0x0000}}, // Display On
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
@@ -935,7 +940,7 @@ void display_table(struct display_table *table, unsigned int count)
 			
             case REGFLAG_DELAY :
                 msleep(table[i].count);
-				        EPRINTK("%s() : delay %d msec\n", __func__, table[i].count);
+				EPRINTK("%s() : delay %d msec\n", __func__, table[i].count);
                 break;
 				
             case REGFLAG_END_OF_TABLE :
@@ -943,13 +948,13 @@ void display_table(struct display_table *table, unsigned int count)
 				
             default:
                 mddi_host_register_cmds_write32(reg, table[i].count, table[i].val_list, 1, 0, 0);
-                //EPRINTK("%s: reg : 0x%04X, val : 0x%04X\n", __func__, reg, table[i].val_list[0]);
+		//EPRINTK("%s: reg : %x, val : %x.\n", __func__, reg, table[i].val_list[0]);
        	}
     }
 	
 }
 
-static void mddi_novatek_vsync_set_handler(msm_fb_vsync_handler_type handler,	
+static void mddi_novatek_vsync_set_handler(msm_fb_vsync_handler_type handler,	/* ISR to be executed */
 					 void *arg)
 {
 	boolean error = FALSE;
@@ -983,17 +988,99 @@ static void mddi_novatek_vsync_set_handler(msm_fb_vsync_handler_type handler,
 		mddi_vsync_detect_enabled = TRUE;
 	}
 }
-
-static void mddi_novatek_lcd_vsync_detected(boolean detected)
-{
-	mddi_vsync_detect_enabled = TRUE;;
-}
-
 // LGE_CHANGE [dojip.kim@lge.com] 2010-07-26, HACK: early wakeup touch for performance
 #ifdef CONFIG_MACH_MSM7X27_THUNDERC_SPRINT
 extern int ts_set_vreg(unsigned char onoff);
 #endif
 
+static void mddi_novatek_lcd_vsync_detected(boolean detected)
+{
+	/* static timetick_type start_time = 0; */
+#if 0 
+	static struct timeval start_time;
+	static boolean first_time = TRUE;
+	/* unit32 mdp_cnt_val = 0; */
+	/* timetick_type elapsed_us; */
+	struct timeval now;
+	uint32 elapsed_us;
+	uint32 num_vsyncs;
+#endif
+	mddi_vsync_detect_enabled = TRUE;;
+
+#if 0 /* Block temporaly till vsync implement */
+	mddi_queue_register_write_int(0x2C00, 0);
+
+	if ((detected) || (mddi_novatek_vsync_attempts > 5)) {
+		if ((detected) || (mddi_novatek_monitor_refresh_value)) {
+			/* if (start_time != 0) */
+			if (!first_time) {
+				jiffies_to_timeval(jiffies, &now);
+				elapsed_us =
+					(now.tv_sec - start_time.tv_sec) * 1000000 +
+					now.tv_usec - start_time.tv_usec;
+				/*
+				 * LCD is configured for a refresh every usecs,
+				 *  so to determine the number of vsyncs that
+				 *  have occurred since the last measurement
+				 *  add half that to the time difference and
+				 *  divide by the refresh rate.
+				 */
+				num_vsyncs = (elapsed_us +
+						(mddi_novatek_rows_per_refresh >>
+						 1))/
+					mddi_novatek_rows_per_refresh;
+				/*
+				 * LCD is configured for * hsyncs (rows) per
+				 * refresh cycle. Calculate new rows_per_second
+				 * value based upon these new measuerments.
+				 * MDP can update with this new value.
+				 */
+				mddi_novatek_rows_per_second =
+					(mddi_novatek_rows_per_refresh * 1000 *
+					 num_vsyncs) / (elapsed_us / 1000);
+			}
+			/* start_time = timetick_get();*/
+			first_time = FALSE;
+			jiffies_to_timeval(jiffies, &start_time);
+			if (mddi_novatek_report_refresh_measurements) {
+				(void)mddi_queue_register_read_int(VPOS,
+									&mddi_novatek_curr_vpos);
+				/* mdp_cnt_val = MDP_LINE_COUNT; */
+			}
+		}
+		/* if detected = TRUE, client initiated wakeup was detected */
+		if (mddi_novatek_vsync_handler != NULL) {
+			(*mddi_novatek_vsync_handler)
+				(mddi_novatek_vsync_handler_arg);
+			mddi_novatek_vsync_handler = NULL;
+		}
+		mddi_vsync_detect_enabled = FALSE;
+		mddi_novatek_vsync_attempts = 0;
+		/* need to disable the interrupt wakeup */
+		if (!mddi_queue_register_write_int(INTMSK, 0x0001))
+			printk("Vsync interrupt disable failed!\n");
+		if (!detected) {
+			/* give up after 5 failed attempts but show error */
+			printk("Vsync detection failed!\n");
+		} else if ((mddi_novatek_monitor_refresh_value) &&
+				(mddi_novatek_report_refresh_measurements)) {
+			printk("  Last Line Counter=%d!\n",
+					mddi_novatek_curr_vpos);
+			/* MDDI_MSG_NOTICE("  MDP Line Counter=%d!\n",mdp_cnt_val); */
+			printk("  Lines Per Second=%d!\n",
+					mddi_novatek_rows_per_second);
+		}
+		/* clear the interrupt */
+		if (!mddi_queue_register_write_int(INTFLG, 0x0001))
+			printk("Vsync interrupt clear failed!\n");
+	} else {
+		/* if detected = FALSE, we woke up from hibernation, but did not
+		 * detect client initiated wakeup.
+		 */
+		mddi_novatek_vsync_attempts++;
+	}
+#endif
+}
 static int mddi_novatek_lcd_on(struct platform_device *pdev)
 {
 	EPRINTK("%s: started.\n", __func__);
@@ -1023,7 +1110,8 @@ static int mddi_novatek_lcd_on(struct platform_device *pdev)
 	// LCD HW Reset
 	mddi_novatek_lcd_panel_poweron();	
 	display_table(mddi_novatek_initialize, sizeof(mddi_novatek_initialize)/sizeof(struct display_table));
-	// display_table(mddi_novatek_display_on, sizeof(mddi_novatek_display_on) / sizeof(struct display_table));
+	//LGSI_CHANGE[pranav.s]
+	//display_table(mddi_novatek_display_on, sizeof(mddi_novatek_display_on) / sizeof(struct display_table));
 	is_lcd_on = TRUE;
 	return 0;
 }
@@ -1054,24 +1142,27 @@ ssize_t mddi_novatek_lcd_store_onoff(struct device *dev, struct device_attribute
 	EPRINTK("%s: onoff : %d\n", __func__, onoff);
 	
 	if(onoff) {
-		mddi_novatek_lcd_on(pdev);
+		is_lcd_on = TRUE;
+		//display_table(mddi_novatek_display_on, sizeof(mddi_novatek_display_on) / sizeof(struct display_table));
+			mddi_novatek_lcd_on(pdev);
 	}
 	else {
-		mddi_novatek_lcd_off(pdev);
+		is_lcd_on = FALSE;
+		//display_table(mddi_novatek_display_off, sizeof(mddi_novatek_display_off) / sizeof(struct display_table));
+			mddi_novatek_lcd_off(pdev);
 	}
 
-	return count;
+	return 0;
 }
 
 int mddi_novatek_position(void)
 {
-	display_table(mddi_novatek_position_table, 
-			ARRAY_SIZE(mddi_novatek_position_table));
+	display_table(mddi_novatek_position_table, ARRAY_SIZE(mddi_novatek_position_table));
 	return 0;
 }
 EXPORT_SYMBOL(mddi_novatek_position);
-
-DEVICE_ATTR(lcd_onoff, 0666, mddi_novatek_lcd_show_onoff, mddi_novatek_lcd_store_onoff);
+//LGSI_LS670_FroyoToGB_CTS Issue Merges_Suresh_28May2011
+DEVICE_ATTR(lcd_onoff, 0665, mddi_novatek_lcd_show_onoff, mddi_novatek_lcd_store_onoff);
 
 struct msm_fb_panel_data novatek_panel_data0 = {
 	.on = mddi_novatek_lcd_on,
@@ -1088,7 +1179,7 @@ static struct platform_device this_device_0 = {
 	}
 };
 
-static int __init mddi_novatek_lcd_probe(struct platform_device *pdev)
+static int __devinit mddi_novatek_lcd_probe(struct platform_device *pdev)
 {
 	int ret;
 	EPRINTK("%s: started.\n", __func__);
@@ -1126,14 +1217,13 @@ static int mddi_novatek_lcd_init(void)
 
 /* LGE_CHANGE [james.jang@lge.com] 2010-08-28, probe LCD */
 #if defined(CONFIG_FB_MSM_MDDI_NOVATEK_HITACHI_HVGA)
-	gpio_tlmm_config(GPIO_CFG(101, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), 
-			  GPIO_ENABLE);
-	gpio_configure(101, GPIOF_INPUT);
+	gpio_tlmm_config(GPIO_CFG(101, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), 
+			  GPIO_CFG_ENABLE);
+//	gpio_configure(101, GPIOF_CFG_INPUT);
 	if (gpio_get_value(101) != 1)
 		return -ENODEV;
 	g_mddi_lcd_probe = 1;
 #endif
-
 	ret = platform_driver_register(&this_driver);
 	if (!ret) {
 		pinfo = &novatek_panel_data0.panel_info;

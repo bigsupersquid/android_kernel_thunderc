@@ -747,22 +747,12 @@ static u32 thunder_lut_camera_novatek[256] = {
 void mdp_load_thunder_lut(int lut_type)
 {
 	int i=0;
-
-/* LGE_CHANGE [james.jang@lge.com] 2010-11-27
-   FIXME */
-#if 0
-	if (g_mddi_lcd_probe == 0) /* Hitachi LCD */
-		return;
-#endif		
-	
 	if(lut_type != 0)
 	{
 		/* MDP cmd block enable */
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
-		/* bit4 : LUT Table is Post(After matrix convert), 
-		 * bit2:0  : disable 3 components table. 
-		 */
+		/* bit4 	: LUT Table is Post(After matrix convert), bit2:0  : disable 3 components table. */
 		MDP_OUTP(MDP_BASE + 0x90070, 0x10);
 
 		if(lut_type == 1)
@@ -813,9 +803,7 @@ void mdp_load_thunder_lut(int lut_type)
 #endif /* CONFIG_FB_MSM_MDDI_NOVATEK_HITACHI_HVGA */
 		}
 		
-		/* bit4	: LUT Table is Post(After matrix convert), 
-		 * bit2:0  : enable 3 components table. 
-		 */
+		/* bit4 	: LUT Table is Post(After matrix convert), bit2:0  : enable 3 components table. */
 		MDP_OUTP(MDP_BASE + 0x90070, 0x17);
 
 		/* MDP cmd block disable */
@@ -832,8 +820,8 @@ void mdp_load_thunder_lut(int lut_type)
 #if defined(CONFIG_FB_MSM_MDDI_NOVATEK_HITACHI_HVGA)
 void lge_probe_lcd(void)
 {
-  gpio_tlmm_config(GPIO_CFG(101, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
-	gpio_configure(101, GPIOF_INPUT);
+  gpio_tlmm_config(GPIO_CFG(101, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
+	//gpio_configure(101, GPIO_CFG_INPUT);
   if (gpio_get_value(101) == 0)
 		g_mddi_lcd_probe = 0; /* Hitachi LCD */
 	else
@@ -903,10 +891,9 @@ void mdp_hw_init(void)
 
 #if defined(CONFIG_MACH_MSM7X27_THUNDERG) || defined(CONFIG_MACH_MSM7X27_THUNDERC)
 	/* LGE_CHANGE_S
-	 * Change code to apply new LUT for display quality. 
-	 * 2010-08-03. minjong.gong@lge.com 
-	 */
-	mdp_load_thunder_lut(1);	/* type = 1 : Normal LUT */
+	  * Change code to apply new LUT for display quality. 2010-08-03. minjong.gong@lge.com 
+	  */
+	mdp_load_thunder_lut(1);	// nornal 
 #endif
 
 	/*

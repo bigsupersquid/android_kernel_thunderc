@@ -75,10 +75,18 @@ extern int g_mddi_lcd_probe;
   * 2010-05-18, minjong.gong@lge.com
   */
 
-/* LGE_CHANGE [james.jang@lge.com] 2010-07-18, adjusted the brightness for LS670 */
-//#define LCD_LED_MAX 21 /* 20.32mA */
+#ifdef CONFIG_MACH_MSM7X27_THUNDERA /* for P505 */
+#define LCD_LED_MAX 14 /* 13.55mA */
+#define LCD_LED_MIN 4  /* 3.87mA */
+#else
+/* LGE_CHANGE,
+  * Change the maximum brightness to reduce current consumption at MR version.
+  * Before : 21 step(20.32mA), After : 16 step(15.48mA)
+  * 2010.10.06, minjong.gong@lge.com
+  */
 #define LCD_LED_MAX 17 /* 16.45mA */
 #define LCD_LED_MIN 0  /* 0.48mA */
+#endif
 #define DEFAULT_BRIGHTNESS 13
 #define AAT28XX_LDO_NUM 4
 
@@ -210,8 +218,19 @@ static int bl_value[256] =
 
 /* Set to Normal mode */
 static struct aat28xx_ctrl_tbl aat2862bl_normal_tbl[] = {
-	// AAT2862 has no ALC mode and don't support ambient light sensor !!
-	{ 0x03, 0xF2 },  /* MEQS(7)=high, DISABLE FADE_MAIN(6)=high(disabled), LCD_ON(5)=high(On),  Brightness=Default (0x12, 13th setp)*/
+#ifdef CONFIG_MACH_MSM7X27_THUNDERA /* for P505 */
+	/* 2010-07-23, hosung8009.kim@lge.com 
+	 * MEQS(7)=high, DISABLE FADE_MAIN(6)=high(disabled),
+	 * LCD_ON(5)=high(On),  Brightness=Default(0x09) 
+	 */
+	 { 0x03, 0xE9 },  
+#else
+	/* LGE_CHANGE. 
+	 * Change register value to do not turn on the bakclight at operatoin mode setting. (0xF2 -> 0xD2)
+	 * 2010-07-31. minjong.gong@lge.com 
+	 */
+	{ 0x03, 0xD2 },  /* MEQS(7)=high, DISABLE FADE_MAIN(6)=high(disabled), LCD_ON(5)=high(On),  Brightness=Default (0x12, 13th setp)*/
+#endif
 	{ 0xFF, 0xFE }	 /* end of command */
 };
 
@@ -427,13 +446,9 @@ int aat28xx_ldo_enable(struct device *dev, unsigned num, unsigned enable)
 		if ((adap=dev_get_drvdata(dev)) && (client=i2c_get_adapdata(adap))) {
 			drvdata = i2c_get_clientdata(client);
 			if (enable) {
-				// LGE_CHAGNE [dojip.kim@lge.com] 2010-07-12, 
-				// should update the ref count only if success
-				if (drvdata->ldo_ref[num-1] == 0) {
+				if (drvdata->ldo_ref[num-1]++ == 0) {
 					dprintk("ref count = 0, call aat28xx_set_ldos\n");
 					err = aat28xx_set_ldos(client, num, enable);
-					if (!err)
-						drvdata->ldo_ref[num-1]++;
 				}
 			}
 			else {
@@ -481,6 +496,7 @@ EXPORT_SYMBOL(aat28xx_ldo_set_level);
 static int aat28xx_set_table(struct aat28xx_driver_data *drvdata, struct aat28xx_ctrl_tbl *ptbl)
 {
 	unsigned int i = 0;
+	unsigned long delay = 0;
 
 	if (ptbl == NULL) {
 		eprintk("input ptr is null\n");
@@ -489,8 +505,10 @@ static int aat28xx_set_table(struct aat28xx_driver_data *drvdata, struct aat28xx
 
 	for( ;;) {
 		if (ptbl->reg == 0xFF) {
-			if (ptbl->val != 0xfe)
-				udelay(ptbl->val);
+			if (ptbl->val != 0xFE) {
+				delay = (unsigned long)ptbl->val;
+				udelay(delay);
+			}
 			else
 				break;
 		}	
@@ -507,7 +525,7 @@ static int aat28xx_set_table(struct aat28xx_driver_data *drvdata, struct aat28xx
 static void aat28xx_hw_reset(struct aat28xx_driver_data *drvdata)
 {
 	if (drvdata->client && gpio_is_valid(drvdata->gpio)) {
-		gpio_configure(drvdata->gpio, GPIOF_DRIVE_OUTPUT);
+		gpio_tlmm_config(GPIO_CFG(drvdata->gpio, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 		/* EN set to LOW(shutdown) -> HIGH(enable) */
 		gpio_set_value(drvdata->gpio, 0);
 		udelay(5);
@@ -541,6 +559,14 @@ static void aat28xx_go_opmode(struct aat28xx_driver_data *drvdata)
 
 static void aat28xx_device_init(struct aat28xx_driver_data *drvdata)
 {
+/* LGE_CHANGE.
+  * Do not initialize aat28xx when system booting. The aat28xx is already initialized in oemsbl or LK !!
+  * 2010-08-16, minjong.gong@lge.com
+  */
+	if (system_state == SYSTEM_BOOTING) {
+		aat28xx_go_opmode(drvdata);
+		return;
+	}
 	aat28xx_hw_reset(drvdata);
 	aat28xx_go_opmode(drvdata);
 }
@@ -583,7 +609,7 @@ static void aat28xx_poweroff(struct aat28xx_driver_data *drvdata)
 		return;
 	}
 
-	gpio_tlmm_config(GPIO_CFG(drvdata->gpio, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA), GPIO_ENABLE);
+	gpio_tlmm_config(GPIO_CFG(drvdata->gpio, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_direction_output(drvdata->gpio, 0);
 	mdelay(6);
 	drvdata->state = POWEROFF_STATE;
@@ -648,24 +674,12 @@ static void aat28xx_wakeup(struct aat28xx_driver_data *drvdata)
 
 	if (drvdata->state == POWEROFF_STATE) {
 		aat28xx_poweron(drvdata);
-		aat28xx_go_opmode(drvdata);
-		if (drvdata->mode == NORMAL_MODE) {
-			if(drvdata->version == 2862) {
-				/* LGE_CHANGE
-				  * Using 'Fade in' function supported by AAT2862 when wakeup.
-				  * 2010-08-21, minjong.gong@lge.com
-				 */
-				aat28xx_write(drvdata->client, drvdata->reg_addrs.fade, 0x00);	/* Floor current : 0.48mA */
-				aat28xx_intensity = (~(drvdata->intensity)& 0x1F);	/* Invert BL control bits and Clear upper 3bits */
-				aat28xx_intensity |= 0xA0;							/* MEQS(7)=1, Disable Fade(6)=0, LCD_ON(5)=1*/
-				aat28xx_write(drvdata->client, drvdata->reg_addrs.bl_m, aat28xx_intensity);
-				aat28xx_write(drvdata->client, drvdata->reg_addrs.fade, 0x08);	/* Fade in to intensity brightness in 1000ms. */
-			} else {
-				aat28xx_set_table(drvdata, drvdata->cmds.normal);
-				aat28xx_write(drvdata->client, drvdata->reg_addrs.bl_m, drvdata->intensity);
-			}
-			drvdata->state = NORMAL_STATE;
-		}		
+		/* LGE_CHANGE
+		 * Because the aat28xx_go_opmode is called in the aat28xx_poweron above, so I remove below function.
+		 * If it is called two times when the previous state of AAT2862 is POWEROFF_STATE, it causes malfucction.
+		 * 2010-07-31. minjong.gong@lge.com
+		 */
+		//aat28xx_go_opmode(drvdata);
 	} else if (drvdata->state == SLEEP_STATE) {
 		if (drvdata->mode == NORMAL_MODE) {
 			if(drvdata->version == 2862) {
@@ -923,7 +937,8 @@ DEVICE_ATTR(alc, 0664, aat28xx_show_alc, aat28xx_store_alc);
 DEVICE_ATTR(reg, 0444, aat28xx_show_reg, NULL);
 DEVICE_ATTR(drvstat, 0444, aat28xx_show_drvstat, NULL);
 /* LGE_CHANGE [james.jang@lge.com] 2010-06-22, backlight on/off */
-DEVICE_ATTR(bl_onoff, 0666, NULL, aat28xx_lcd_backlight_onoff);
+//LGSI_LS670_FroyoToGB_CTS Issue Merges_Suresh_28May2011
+DEVICE_ATTR(bl_onoff, 0665, NULL, aat28xx_lcd_backlight_onoff);
 
 static int aat28xx_set_brightness(struct backlight_device *bd)
 {
@@ -1034,8 +1049,7 @@ static int __init aat28xx_probe(struct i2c_client *i2c_dev, const struct i2c_dev
 	// set the en as the high
 	if (drvdata->gpio)
 		gpio_direction_output(drvdata->gpio, 1);
-
-	bd = backlight_device_register("aat28xx-bl", &i2c_dev->dev, NULL, &aat28xx_ops);
+	bd = backlight_device_register("aat28xx-bl", &i2c_dev->dev, NULL, &aat28xx_ops, NULL);
 	if (bd == NULL) {
 		eprintk("entering aat28xx probe function error \n");
 		if (gpio_is_valid(drvdata->gpio))
@@ -1099,7 +1113,7 @@ static struct i2c_device_id aat28xx_idtable[] = {
 
 MODULE_DEVICE_TABLE(i2c, aat28xx_idtable);
 
-static struct i2c_driver aat28xx_driver = {
+static struct i2c_driver aat28xx_driver __refdata = {
 	.probe 		= aat28xx_probe,
 	.remove 	= aat28xx_remove,
 #ifndef CONFIG_HAS_EARLYSUSPEND

@@ -278,23 +278,31 @@ static int fbcon_get_rotate(struct fb_info *info)
 	return (ops) ? ops->rotate : 0;
 }
 
-/* LGE_CHANGE_S, [munyoung@lge.com] booting logo */
-#ifdef CONFIG_FB_MSM_LOGO
+/* LGE_CHANGE_S
+ * Change codes to remove console cursor on booting screen. Refered to VS740
+ * 2010-07-31. minjong.gong@lge.com
+ */
+#ifdef CONFIG_LGE_FBCON_INACTIVE_CONSOLE
 extern int msm_fb_get_console_inactive(void);
 #endif
-/* LGE_CHANGE_S, [munyoung@lge.com] booting logo */
-
+/* LGE_CHANGE_E, 2010-07-31. minjong.gong@lge.com  */
 static inline int fbcon_is_inactive(struct vc_data *vc, struct fb_info *info)
 {
 	struct fbcon_ops *ops = info->fbcon_par;
 
+/* LGE_CHANGE_S
+ * Change codes to remove console cursor on booting screen. Refered to VS740
+ * 2010-07-31. minjong.gong@lge.com
+ */
+#ifdef CONFIG_LGE_FBCON_INACTIVE_CONSOLE
 	return (info->state != FBINFO_STATE_RUNNING ||
 		vc->vc_mode != KD_TEXT || ops->graphics
- 		/* LGE_CHANGE, [munyoung@lge] booting logo */
-		#ifdef CONFIG_FB_MSM_LOGO
-		|| msm_fb_get_console_inactive()
-		#endif
-		);
+		|| msm_fb_get_console_inactive());
+#else
+	return (info->state != FBINFO_STATE_RUNNING ||
+		vc->vc_mode != KD_TEXT || ops->graphics);
+#endif
+/* LGE_CHANGE_E, 2010-07-31. minjong.gong@lge.com  */
 }
 
 static inline int get_color(struct vc_data *vc, struct fb_info *info,
@@ -1262,6 +1270,27 @@ static void fbcon_clear(struct vc_data *vc, int sy, int sx, int height,
 		ops->clear(vc, info, real_y(p, sy), sx, height, width);
 }
 
+/* LGE_CHANGE_S [bluerti@lge.com] 2009-07-13 */
+void fbcon_putcs_byLGE(struct vc_data *vc, const unsigned short *s,
+			int count, int ypos, int xpos)
+{
+	struct fb_info *info = registered_fb[con2fb_map[vc->vc_num]];
+	struct display *p = &fb_display[vc->vc_num];
+	struct fbcon_ops *ops = info->fbcon_par;
+
+	ops->putcs(vc, info, s, count, real_y(p, ypos), xpos,
+			   1, 0);
+
+
+}
+void fbcon_update_byLGE(struct vc_data *vc)
+{
+	struct fb_info *info = registered_fb[con2fb_map[vc->vc_num]];
+	struct fbcon_ops *ops = info->fbcon_par;
+	
+	ops->update_start(info);
+}
+/* LGE_CHANGE_E [bluerti@lge.com] 2009-07-13 */
 static void fbcon_putcs(struct vc_data *vc, const unsigned short *s,
 			int count, int ypos, int xpos)
 {
@@ -3036,6 +3065,20 @@ static int fbcon_fb_unregistered(struct fb_info *info)
 	return 0;
 }
 
+static void fbcon_remap_all(int idx)
+{
+	int i;
+	for (i = first_fb_vc; i <= last_fb_vc; i++)
+		set_con2fb_map(i, idx, 0);
+
+	if (con_is_bound(&fb_con)) {
+		printk(KERN_INFO "fbcon: Remapping primary device, "
+		       "fb%i, to tty %i-%i\n", idx,
+		       first_fb_vc + 1, last_fb_vc + 1);
+		info_idx = idx;
+	}
+}
+
 #ifdef CONFIG_FRAMEBUFFER_CONSOLE_DETECT_PRIMARY
 static void fbcon_select_primary(struct fb_info *info)
 {
@@ -3235,6 +3278,10 @@ static int fbcon_event_notify(struct notifier_block *self,
 	case FB_EVENT_GET_REQ:
 		caps = event->data;
 		fbcon_get_requirement(info, caps);
+		break;
+	case FB_EVENT_REMAP_ALL_CONSOLE:
+		idx = info->node;
+		fbcon_remap_all(idx);
 		break;
 	}
 done:
