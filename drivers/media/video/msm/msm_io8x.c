@@ -159,34 +159,34 @@ enable_fail:
 
 void msm_camio_disable(struct platform_device *pdev)
 {
- 	iounmap(appbase);
- 	release_mem_region(camio_ext.appphy, camio_ext.appsz);
- 	msm_camio_clk_disable(CAMIO_MDC_CLK);
- 	msm_camio_clk_disable(CAMIO_VFE_AXI_CLK);
+	iounmap(appbase);
+	release_mem_region(camio_ext.appphy, camio_ext.appsz);
+	msm_camio_clk_disable(CAMIO_MDC_CLK);
+	msm_camio_clk_disable(CAMIO_VFE_AXI_CLK);
 }
 
 int msm_camio_sensor_clk_on(struct platform_device *pdev)
 {
+
 	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
- 	int32_t rc = 0;
- 	camio_ext = camdev->ioext;
+	int32_t rc = 0;
+	camio_ext = camdev->ioext;
 
 	mdcio = request_mem_region(camio_ext.mdcphy,
 		camio_ext.mdcsz, pdev->name);
-	if (!mdcio) 
+	if (!mdcio)
 		rc = -EBUSY;
-       mdcbase = ioremap(camio_ext.mdcphy,
-		       camio_ext.mdcsz);
-       if (!mdcbase)
+	mdcbase = ioremap(camio_ext.mdcphy,
+		camio_ext.mdcsz);
+	if (!mdcbase)
 		goto mdc_no_mem;
-
-
 	camdev->camera_gpio_on();
 
 	msm_camio_clk_enable(CAMIO_VFE_CLK);
 	msm_camio_clk_enable(CAMIO_VFE_MDC_CLK);
 	return rc;
+
 
 mdc_no_mem:
 	release_mem_region(camio_ext.mdcphy, camio_ext.mdcsz);
@@ -197,12 +197,12 @@ int msm_camio_sensor_clk_off(struct platform_device *pdev)
 {
 	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
 	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
-	
 	camdev->camera_gpio_off();
 	iounmap(mdcbase);
 	release_mem_region(camio_ext.mdcphy, camio_ext.mdcsz);
 	msm_camio_clk_disable(CAMIO_VFE_CLK);
 	return msm_camio_clk_disable(CAMIO_VFE_MDC_CLK);
+
 }
 
 void msm_disable_io_gpio_clk(struct platform_device *pdev)
