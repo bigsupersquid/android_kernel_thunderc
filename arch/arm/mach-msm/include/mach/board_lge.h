@@ -36,18 +36,20 @@
 
 /* define PMEM address size */
 #ifdef CONFIG_ARCH_MSM7X25
-#define MSM_PMEM_MDP_SIZE	0xb21000
-#define MSM_PMEM_ADSP_SIZE	0x97b000
-#define MSM_PMEM_AUDIO_SIZE	0x121000
-#define MSM_FB_SIZE		0x200000
-#define PMEM_KERNEL_EBI1_SIZE	0x64000
+#define MSM_PMEM_MDP_SIZE   0xb21000
+#define MSM_PMEM_ADSP_SIZE  0x97b000
+#define MSM_PMEM_AUDIO_SIZE 0x121000
+#define MSM_FB_SIZE     0x200000
+#define PMEM_KERNEL_EBI1_SIZE   0x64000
 #endif
 
 #ifdef CONFIG_ARCH_MSM7X27
 #define MSM_PMEM_MDP_SIZE	0x1B76000
+//LGSI_CHANGE_S[pranav.s@lge.com]
 //LGE_CHANGE[byungsik.choi@lge.com]2010-07-08 chage pmem_adsp size for camera memory allocation
 //#define MSM_PMEM_ADSP_SIZE     0xAE4000
 #define MSM_PMEM_ADSP_SIZE     0xE4E1C0
+//LGSI_CHANGE_S[pranav.s@lge.com]
 #define MSM_PMEM_AUDIO_SIZE    0x5B000
 #define MSM_FB_SIZE            0x177000
 #define MSM_GPU_PHYS_SIZE      SZ_2M
@@ -59,15 +61,31 @@
 
 /* Using upper 1/2MB of Apps Bootloader memory*/
 #define MSM_PMEM_AUDIO_START_ADDR	0x80000ul
-
+/*LGSI_CHANGE_S <pranav.s@lge.com>:TA charging current for sprint changed to 700mA */ 
 // LGE_CHANGE [dojip.kim@lge.com] 2010-09-02, for Sprint
 #ifdef CONFIG_MACH_MSM7X27_THUNDERC_SPRINT
 /* TA charger */
 #define LS670_TA_CHG_CURRENT	700
 #define LS670_USB_CHG_CURRENT	400
 #endif
+/*LGSI_CHANGE_E <pranav.s@lge.com>:TA charging current for sprint changed to 700mA */ 
 
 /* board revision information */
+enum {
+	EVB         = 0,
+	LGE_REV_A,
+	LGE_REV_B,
+	LGE_REV_C,
+	LGE_REV_D,
+	LGE_REV_E,
+	LGE_REV_F,
+	LGE_REV_10,
+	LGE_REV_11,
+	LGE_REV_12,
+	LGE_REV_13,
+	LGE_REV_TOT_NUM,
+};
+
 extern int lge_bd_rev;
 
 /* define gpio pin number of i2c-gpio */
@@ -211,8 +229,9 @@ struct aat1270_flash_platform_data {
 struct android_vibrator_platform_data {
 	int enable_status;
 	int (*power_set)(int enable); 		/* LDO Power Set Function */
-	int (*pwm_set)(int enable, int gain); 	/* PWM Set Function */
+	int (*pwm_set)(int enable, int gain); 		/* PWM Set Function */
 	int (*ic_enable_set)(int enable); 	/* Motor IC Set Function */
+	int (*gpio_request)(void);	/* gpio request */
 	int amp_value;				/* PWM tuning value */
 };
 
@@ -267,7 +286,6 @@ struct msm_panel_hitachi_pdata {
 	int initialized;
 };
 
-/* LGE_CHANGE [dojip.kim@lge.com] 2010-05-11, support for Sharp Panel (Novatek DDI) */
 struct msm_panel_novatek_pdata {
 	int gpio;
 	int (*backlight_level)(int level, int max, int min);
@@ -309,6 +327,14 @@ enum {
 	REBOOT_KEY_NOT_PRESS,
 };
 
+extern int hidden_reset_enable;
+#ifdef CONFIG_LGE_HIDDEN_RESET_PATCH
+extern int on_hidden_reset;
+void *lge_get_fb_addr(void);
+void *lge_get_fb_copy_phys_addr(void);
+#endif
+void *lge_get_fb_copy_virt_addr(void);
+
 struct lge_panic_handler_platform_data {
 	int (*reboot_key_detect)(void);
 };
@@ -321,7 +347,7 @@ unsigned lge_get_lpm_info(void);
 
 #define CAMERA_POWER_ON				0
 #define CAMERA_POWER_OFF			1
-
+//pranav.s
 int camera_status(void);
 
 typedef void (gpio_i2c_init_func_t)(int bus_num);
@@ -349,4 +375,7 @@ void __init lge_add_misc_devices(void);
 void __init lge_add_gpio_i2c_device(gpio_i2c_init_func_t *init_func);
 void __init lge_add_gpio_i2c_devices(void);
 int __init lge_get_uart_mode(void);
+void __init lge_add_pm_devices(void);
+void __init lge_add_tsif_devices(void);
+
 #endif

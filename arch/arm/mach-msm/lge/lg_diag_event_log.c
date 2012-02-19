@@ -19,10 +19,9 @@
  *  along with this program; if not, you can find it at http://www.fsf.org
  */
 
-/* LGE_CHANGE [sm.shim@lge.com] 2010-07-26, File add "lg_diag-event_log.c" Testmode cmd 22 Key test merge from VS660 */
-
 #include <linux/platform_device.h>
 #include <linux/input.h>
+#include <linux/slab.h>
 
 #define DRIVER_NAME "diag_event_log"
 
@@ -81,7 +80,6 @@ static int diag_event_log_connect(struct input_handler *handler,struct input_dev
 		goto err_input_open_device;
 
 	return 0;
-
 err_input_open_device:
 	input_unregister_handle(handle);
 err_input_register_handle:
@@ -105,8 +103,7 @@ static const struct input_device_id diag_event_log_ids[] = {
 	{ },
 };
 
-static void diag_event_log_event(struct input_handle *handle, 
-		unsigned int type, unsigned int code, int value)
+static void diag_event_log_event(struct input_handle *handle, unsigned int type,unsigned int code, int value)
 {
 	if ( (type == EV_KEY)&& (value == 1) ){
 		lgf_factor_key_test_rsp((uint8_t)code);
@@ -146,7 +143,7 @@ int diag_event_log_end(void)
 }
 EXPORT_SYMBOL(diag_event_log_end);
 
-static int  __init diag_event_log_probe(struct platform_device *pdev)
+static int  __devinit diag_event_log_probe(struct platform_device *pdev)
 {
 	int rc = 0 ;
 	return rc;

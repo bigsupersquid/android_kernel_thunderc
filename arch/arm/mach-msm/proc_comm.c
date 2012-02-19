@@ -24,6 +24,7 @@
 #include <mach/system.h>
 
 #include "proc_comm.h"
+/* LGE_CHANGE_S [bluerti@lge.com] 2009-07-06 <For Error Handler > */
 #include "smd_private.h"
 
 #if defined(CONFIG_ARCH_MSM7X30)

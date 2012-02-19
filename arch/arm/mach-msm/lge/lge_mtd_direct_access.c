@@ -23,6 +23,7 @@
 // LGE_CHANGE [dojip.kim@lge.com] 2010-08-23, do something after cold boot
 #include "lg_fw_diag_communication.h"
 
+#include <linux/slab.h>
 #if defined(CONFIG_MACH_MSM7X27_THUNDERC)
 /* LGE_CHANGE [james.jang@lge.com] 2010-07-20, for FOTA_STO */
 //#define MISC_PART_NUM 6
@@ -72,10 +73,13 @@ int boot_info = 0;
 
 module_param(dev, int, S_IRUGO);
 module_param(target_block, int, S_IRUGO);
+#if 1 //LGSI_CHANGE_START[panchaxari.t@lge.com] // for cts test failure case
+module_param(boot_info, int, S_IWUSR | S_IRUGO); 
+#endif //LGSI_CHANGE_END[panchaxari.t@lge.com] // for cts test failure case
 /* LGE_CHANGE [sm.shim@lge.com] 2010-08-22, merge First Boot Complete Test from VS660 */
-module_param(boot_info, int, 0664);
+//module_param(boot_info, int, 0664); // enabled for CTS permission failure
 
-/* LGE_CHANGE_S [sm.shim@lge.com] 2010-08-22, merge First Boot Complete Test from VS660 */
+
 static int test_init(void)
 {
 	int partition = PERSIST_PART_NUM;
@@ -162,7 +166,11 @@ static int test_write_block(const char *val, struct kernel_param *kp)
 
 	return 0;
 }
+//LGSI_CHANGE_START[panchaxari.t@lge.com] for CTS failure
 module_param_call(write_block, test_write_block, param_get_bool, &dummy_arg, S_IWUSR | S_IRUGO);
+//Suresh for Factory Reset and CTS
+module_param_call(write_block_2, test_write_block, param_get_bool, &dummy_arg,S_IWUSR | S_IRUGO);
+//LGSI_CHANGE_END[panchaxari.t@lge.com] for CTS failure
 
 /* LGE_CHANGE_S [sm.shim@lge.com] 2010-08-22, merge First Boot Complete Test from VS660 */
 #define FACTORY_RESET_STR_SIZE 11
@@ -205,8 +213,10 @@ error:
 	}
 	
 }
-module_param_call(read_block, param_get_bool, test_read_block, &dummy_arg, (S_IWUSR | S_IRUGO));
+//LGSI_CHANGE_START[panchaxari.t@lge.com] for CTS failure
+module_param_call(read_block, (void*)param_get_bool, (void*)test_read_block, &dummy_arg, S_IWUSR | S_IRUGO);
 /* LGE_CHANGE_E [sm.shim@lge.com] 2010-08-22, merge First Boot Complete Test from VS660 */
+//LGSI_CHANGE_END[panchaxari.t@lge.com] for CTS failure
 
 int lge_erase_block(int ebnum)
 {

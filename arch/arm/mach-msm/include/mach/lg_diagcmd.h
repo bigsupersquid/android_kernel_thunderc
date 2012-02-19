@@ -393,18 +393,30 @@ Don't change previous defines and add new id at the end
 /* Send Optimized F3 messages */
 #define DIAG_QSR_EXT_MSG_TERSE_F   146
 
+/* LGE_CHANGES_S [minjong.gong@lge.com] 2010-06-11, LG_FW_DIAG_SCREEN_CAPTURE */
 #define DIAG_LGF_SCREEN_SHOT_F     150
-
 #define DIAG_LGF_SCREEN_PARTSHOT_F     151 
 
+/* LGE_CHANGES_E [minjong.gong@lge.com] 2010-06-11, LG_FW_DIAG_SCREEN_CAPTURE */
+/* LGE_CHANGE_S [jihoon.lee@lge.com] 2010-02-07, LG_FW_MTC */
+#if defined (CONFIG_MACH_MSM7X27_THUNDERC) || defined (LG_FW_MTC)
 #define DIAG_MTC_F              240
+#endif /*LG_FW_MTC*/
+/* LGE_CHANGE_E [jihoon.lee@lge.com] 2010-02-07, LG_FW_MTC */
+
+/* Number of packets defined. */
+#ifdef CONFIG_LGE_DIAG_WMC
+#define DIAG_WMCSYNC_MAPPING_F 	241
+#endif
+
+#define DIAG_WIFI_MAC_ADDR 214
+
+/* Number of packets defined. */
 #define DIAG_TEST_MODE_F          250  
 #define DIAG_UDM_SMS_MODE			252
 #define DIAG_LCD_Q_TEST_F         253
 
 #define DIAG_MAX_F                 255
-
-/* LGE_CHANGES_E [woonghee@lge.com] 2009-12-29, [VS740] */
 
 typedef enum {
   DIAG_SUBSYS_OEM                = 0,       /* Reserved for OEM use */

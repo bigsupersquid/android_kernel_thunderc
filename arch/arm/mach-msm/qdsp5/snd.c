@@ -56,12 +56,6 @@ static struct snd_ctxt the_snd;
 #define SND_AVC_CTL_PROC 29
 #define SND_AGC_CTL_PROC 30
 
-#if defined (CONFIG_MACH_MSM7X27_ALOHAV) 
-//#if (CONFIG_LGE_AUDIO_HIDDEN_MENU_TEST_PATCH)
-/* LGE_CHANGES_S [kiwone@lge.com] 2010-01-08, [VS740] for testmode and so on */
-// #define ONCRPC_SND_LOOPBACK_CMD_PROC 60,-->already defined in app(snd_rpc.h,snd_client.c), ONCRPC_SND_LOOPBACK_CMD_PROC
-#define SND_SET_LOOPBACK_MODE_PROC 61
-#else
 #define SND_SET_LOOPBACK_MODE_PROC 61
 #define SND_SET_VOCCAL_PARAM_PROC 62
 #define SND_SET_VOCCAL_IIR_PARAM_PROC 63
@@ -77,14 +71,9 @@ static struct snd_ctxt the_snd;
 #define SND_SET_VOICE_CLARITY_PROC 73
 #define SND_SET_POWER_OFF_PROC 74
 #define SND_SET_HOOK_MODE_PROC 75
+#if defined (CONFIG_MACH_MSM7X27_THUNDERG)
+#define SND_SET_AMP_CONTROL_PROC 76
 #endif
-
-#if defined (CONFIG_MACH_MSM7X27_ALOHAV) 
-//#if (CONFIG_LGE_AUDIO_HIDDEN_MENU_TEST_PATCH)
-/* LGE_CHANGES_S [kiwone@lge.com] 2010-01-10, [VS740]  for testmode call acoustic rec/play */
-#define SND_SET_CALL_ACOUSTIC_PATH_ONOFF_PROC 62
-#endif
-
 struct rpc_snd_set_device_args {
 	uint32_t device;
 	uint32_t ear_mute;
@@ -137,30 +126,10 @@ struct snd_agc_ctl_msg {
 
 struct snd_endpoint *get_snd_endpoints(int *size);
 
-#if defined (CONFIG_MACH_MSM7X27_ALOHAV) 
-//#if (CONFIG_LGE_AUDIO_HIDDEN_MENU_TEST_PATCH)
-/* LGE_CHANGES_S [kiwone@lge.com] 2010-01-08, [VS740] for testmode and so on */
 struct snd_set_loopback_param_rep {
 	struct rpc_reply_hdr hdr;
 	uint32_t get_mode;
-}lrep;	
-struct rpc_snd_set_loopback_mode_args {
-     uint32_t mode;
-     uint32_t cb_func;
-     uint32_t client_data;
-};
-
-struct snd_set_loopback_mode_msg {
-    struct rpc_request_hdr hdr;
-    struct rpc_snd_set_loopback_mode_args args;
-};
-#else
-/* LGE_CHANGE_S, [junyoub.an] , 2010-02-19, for sound cal tool*/
-
-struct snd_set_loopback_param_rep {
-	struct rpc_reply_hdr hdr;
-	uint32_t get_mode;
-}lrep;	
+}lrep;
 struct rpc_snd_set_loopback_mode_args {
      uint32_t mode;
      uint32_t cb_func;
@@ -224,7 +193,6 @@ struct rpc_snd_set_voccal_param_args {
 	uint32_t cb_func;
 	uint32_t client_data;
 };
-
 struct snd_set_voccal_param_msg {
 	struct rpc_request_hdr hdr;
 	struct rpc_snd_set_voccal_param_args args;
@@ -235,11 +203,11 @@ struct rpc_snd_set_voccal_iir_param_args {
      voccal_iir_filter_type voccal_iir_param_type;
 	 int get_flag;  //get_flag = 0 for set, get_flag = 1 for get
      int32_t param_val;
- 
+
      uint32_t cb_func;
      uint32_t client_data;
 };
- 
+
 struct snd_set_voccal_iir_param_msg {
     struct rpc_request_hdr hdr;
     struct rpc_snd_set_voccal_iir_param_args args;
@@ -250,11 +218,11 @@ struct rpc_snd_set_next_ec_param_args {
      nextgen_ec_param_enum_type ec_param_type;
 	 int get_flag;  //get_flag = 0 for set, get_flag = 1 for get
      int32_t param_val;
- 
+
      uint32_t cb_func;
      uint32_t client_data;
 };
- 
+
 struct snd_set_next_ec_param_msg {
     struct rpc_request_hdr hdr;
     struct rpc_snd_set_next_ec_param_args args;
@@ -266,11 +234,11 @@ struct rpc_snd_set_rx_volume_param_args {
      uint32_t idx;
 	 int get_flag;  //get_flag = 0 for set, get_flag = 1 for get
      int32_t param_val;
- 
+
      uint32_t cb_func;
      uint32_t client_data;
 };
- 
+
 struct snd_set_rx_volume_param_msg {
     struct rpc_request_hdr hdr;
     struct rpc_snd_set_rx_volume_param_args args;
@@ -282,11 +250,11 @@ struct rpc_snd_set_dtmf_volume_param_args {
      uint32_t idx;
 	 int get_flag;  //get_flag = 0 for set, get_flag = 1 for get
      int32_t param_val;
- 
+
      uint32_t cb_func;
      uint32_t client_data;
 };
- 
+
 struct snd_set_dtmf_volume_param_msg {
     struct rpc_request_hdr hdr;
     struct rpc_snd_set_dtmf_volume_param_args args;
@@ -298,11 +266,11 @@ struct rpc_snd_set_pad_value_param_args {
      uint32_t idx;
 	 int get_flag;  //get_flag = 0 for set, get_flag = 1 for get
      int32_t param_val;
- 
+
      uint32_t cb_func;
      uint32_t client_data;
 };
- 
+
 struct snd_set_pad_value_param_msg {
     struct rpc_request_hdr hdr;
     struct rpc_snd_set_pad_value_param_args args;
@@ -326,7 +294,7 @@ struct rpc_snd_write_efs_args {
      uint32_t cb_func;
      uint32_t client_data;
 };
- 
+
 struct snd_write_efs_msg {
     struct rpc_request_hdr hdr;
     struct rpc_snd_write_efs_args args;
@@ -350,7 +318,7 @@ struct rpc_snd_set_fm_radio_vol_args {
      uint32_t cb_func;
      uint32_t client_data;
 };
- 
+
 struct snd_set_fm_radio_vol_msg {
     struct rpc_request_hdr hdr;
     struct rpc_snd_set_fm_radio_vol_args args;
@@ -370,7 +338,7 @@ struct snd_set_voice_clarity_msg {
 struct snd_set_hook_param_rep {
 	struct rpc_reply_hdr hdr;
 	uint32_t get_mode;
-}hkrep;	
+}hkrep;
 struct rpc_snd_set_hook_mode_args {
      uint32_t mode;
      uint32_t cb_func;
@@ -382,18 +350,16 @@ struct snd_set_hook_mode_msg {
     struct rpc_snd_set_hook_mode_args args;
 };
 
-static int loopback_at=false;
-static int last_device_at=-1;
-static int fm_radio_flag = 0;
+//static int fm_radio_flag = 0;
 /* LGE_CHANGE_E, [junyoub.an] , 2010-02-19, for sound cal tool*/
-#endif
+
 
 #if defined (CONFIG_LGE_AUDIO_HIDDEN_MENU_TEST_PATCH)
 /* LGE_CHANGES_S [kiwone@lge.com] 2010-01-10, [VS740]  for testmode call acoustic rec/play */
 struct snd_set_call_acoustic_path_onoff_param_rep {
 	struct rpc_reply_hdr hdr;
 	uint32_t get_on_off;
-}call_acoustic_path_onoff_rep;	
+}call_acoustic_path_onoff_rep;
 
 struct rpc_snd_set_call_acoustic_path_onoff_param_args {
      uint32_t on_off;
@@ -406,7 +372,6 @@ struct snd_set_call_acoustic_path_onoff_param_msg {
     struct rpc_snd_set_call_acoustic_path_onoff_param_args args;
 };
 #endif
-
 static inline int check_mute(int mute)
 {
 	return (mute == SND_MUTE_MUTED ||
@@ -452,15 +417,8 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct msm_snd_device_config dev;
 	struct msm_snd_volume_config vol;
 	struct snd_ctxt *snd = file->private_data;
-
-#if defined (CONFIG_MACH_MSM7X27_ALOHAV) 
-//#if (CONFIG_LGE_AUDIO_HIDDEN_MENU_TEST_PATCH)
-	/* LGE_CHANGES_S [kiwone@lge.com] 2010-01-08, [VS740] for testmode and so on */
 	struct msm_snd_set_loopback_mode_param loopback;
-	struct snd_set_loopback_mode_msg lbmsg;	
-#else
-	struct msm_snd_set_loopback_mode_param loopback;
-	struct snd_set_loopback_mode_msg lbmsg;	
+	struct snd_set_loopback_mode_msg lbmsg;
 	struct msm_snd_set_voccal_param voccal;
 	struct snd_set_voccal_param_msg cmsg;
 	struct msm_snd_set_voccal_iir_param voccaliir;
@@ -483,16 +441,7 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct msm_snd_set_voice_clarity_param voiceclarity;
 	struct snd_set_voice_clarity_msg vcmsg;
 	struct msm_snd_set_hook_mode_param hook_param;
-	struct snd_set_hook_mode_msg hookmsg;	
-#endif
-
-#if defined (CONFIG_MACH_MSM7X27_ALOHAV) 
-//#if (CONFIG_LGE_AUDIO_HIDDEN_MENU_TEST_PATCH)
-/* LGE_CHANGES_S [kiwone@lge.com] 2010-01-10, [VS740]  for testmode call acoustic rec/play */
-	struct msm_snd_set_call_acoustic_path_onoff_param call_acoustic_path_onoff;
-	struct snd_set_call_acoustic_path_onoff_param_msg call_acoustic_path_onoff_msg; 
-#endif
-
+	struct snd_set_hook_mode_msg hookmsg;
 	int rc = 0;
 
 	uint32_t avc, agc;
@@ -524,21 +473,6 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		rc = msm_rpc_call(snd->ept,
 			SND_SET_DEVICE_PROC,
 			&dmsg, sizeof(dmsg), 5 * HZ);
-#ifndef CONFIG_MACH_MSM7X27_ALOHAV
-/* LGE_CHANGE_S, [junyoub.an] , 2010-02-19, for sound cal tool*/
-		if (dev.device == VOC_CODEC_FM_RADIO_HEADSET_MEDIA
-			|| dev.device == VOC_CODEC_FM_RADIO_SPEAKER_MEDIA){
-				fm_radio_flag =1;
-			}
-		else if((dev.device == VOC_CODEC_STEREO_HEADSET_MEDIA
-			|| dev.device== VOC_CODEC_SPEAKER_MEDIA
-			|| dev.device== VOC_CODEC_VOICE_RECORDER
-			|| dev.device== VOC_CODEC_A2DP_BT_HEADSET)
-			&& (fm_radio_flag == 1)){
-			fm_radio_flag = 0;
-		}
-/* LGE_CHANGE_S, [junyoub.an] , 2010-02-19, for sound cal tool*/
-#endif
 		break;
 
 	case SND_SET_VOLUME:
@@ -619,41 +553,6 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		rc = get_endpoint(snd, arg);
 		break;
 
-#if defined (CONFIG_MACH_MSM7X27_ALOHAV) 
-//#if (CONFIG_LGE_AUDIO_HIDDEN_MENU_TEST_PATCH)
-		/* LGE_CHANGES_S [kiwone@lge.com] 2010-01-08, [VS740] for testmode and so on */
-	case SND_SET_LOOPBACK_MODE:
-		if (copy_from_user(&loopback, (void __user *) arg, sizeof(loopback))) {
-			pr_err("snd_ioctl set_loopback_mode: invalid pointer.\n");
-			rc = -EFAULT;
-			break;
-		}
-
-		lbmsg.args.mode = cpu_to_be32(loopback.mode);
-		lbmsg.args.cb_func = -1;
-		lbmsg.args.client_data = 0;
-
-
-		pr_info("set_loopback_mode %d \n", loopback.mode);
-
-		rc = msm_rpc_call(snd->ept,
-			SND_SET_LOOPBACK_MODE_PROC,
-			&lbmsg, sizeof(lbmsg), 5 * HZ);
-		
-		if (rc < 0){
-			printk(KERN_ERR "%s:rpc err because of %d\n", __func__, rc);
-		}
-		else
-		{
-			loopback.get_param = be32_to_cpu(lrep.get_mode);
-			printk(KERN_INFO "%s:loopback mode ->%d\n", __func__, loopback.get_param);
-			if (copy_to_user((void __user *)arg, &loopback, sizeof(loopback))) {
-				pr_err("snd_ioctl get loopback mode: invalid write pointer.\n");
-				rc = -EFAULT;
-			}
-		}
-		break;
-#else
 
 	case SND_SET_LOOPBACK_MODE:
 	if (copy_from_user(&loopback, (void __user *) arg, sizeof(loopback))) {
@@ -672,7 +571,7 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	rc = msm_rpc_call(snd->ept,
 		SND_SET_LOOPBACK_MODE_PROC,
 		&lbmsg, sizeof(lbmsg), 5 * HZ);
-	
+
 	if (rc < 0){
 		printk(KERN_ERR "%s:rpc err because of %d\n", __func__, rc);
 	}
@@ -686,7 +585,6 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 	}
 	break;
-
 /* LGE_CHANGE_S, [junyoub.an] , 2010-02-19, for sound cal tool*/
 	case SND_SET_VOCCAL_PARAM:
 		if (copy_from_user(&voccal, (void __user *) arg, sizeof(voccal))) {
@@ -910,7 +808,7 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				rc = -EFAULT;
 			}
 		}
-			
+
 		if (copy_to_user((void __user *)arg, &ampgain, sizeof(ampgain))) {
 			pr_err("snd_ioctl get amp gain: invalid write pointer.\n");
 			rc = -EFAULT;
@@ -927,7 +825,7 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			&wmsg, sizeof(wmsg),&wrep, sizeof(wrep), 5 * HZ);
 		if (rc < 0){
 			printk(KERN_ERR "%s:rpc err because of %d\n", __func__, rc);
-		} 
+		}
 		else
 		{
 			wefs = be32_to_cpu(wrep.result);
@@ -938,7 +836,7 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			}
 		}
 		break;
-	case SND_WRITE_MEM:	
+	case SND_WRITE_MEM:
 		wmsg.args.cb_func = -1;
 		wmsg.args.client_data = 0;
 		pr_info("set_write_efs \n");
@@ -948,7 +846,7 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			&wmsg, sizeof(wmsg),&wrep, sizeof(wrep), 5 * HZ);
 		if (rc < 0){
 			printk(KERN_ERR "%s:rpc err because of %d\n", __func__, rc);
-		} 
+		}
 		else
 		{
 			wefs = be32_to_cpu(wrep.result);
@@ -1017,7 +915,7 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		vcmsg.args.cb_func = -1;
 		vcmsg.args.client_data = 0;
 		pr_info("set_loopback_mode %d \n", voiceclarity.mode);
-					
+
 		rc = msm_rpc_call(snd->ept,
 			SND_SET_VOICE_CLARITY_PROC,
 			&vcmsg, sizeof(vcmsg), 5 * HZ);
@@ -1044,7 +942,7 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			&wmsg, sizeof(wmsg),&wrep, sizeof(wrep), 5 * HZ);
 		if (rc < 0){
 			printk(KERN_ERR "%s:rpc err because of %d\n", __func__, rc);
-		} 
+		}
 		else
 		{
 			wefs = be32_to_cpu(wrep.result);
@@ -1072,7 +970,7 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		rc = msm_rpc_call_reply(snd->ept,
 			SND_SET_HOOK_MODE_PROC,
 			&hookmsg, sizeof(hookmsg),&hkrep, sizeof(hkrep), 5 * HZ);
-		
+
 		if (rc < 0){
 			printk(KERN_ERR "%s:rpc err because of %d\n", __func__, rc);
 		}
@@ -1086,45 +984,40 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			}
 		}
 		break;
-/* LGE_CHANGE_E, [junyoub.an] , 2010-02-28, for hook key*/
-#endif
-
-#if defined (CONFIG_MACH_MSM7X27_ALOHAV) 
-//#if (CONFIG_LGE_AUDIO_HIDDEN_MENU_TEST_PATCH)
-	/* LGE_CHANGES_S [kiwone@lge.com] 2010-01-10, [VS740]  for testmode call acoustic rec/play */
-	case SND_SET_CALL_ACOUSTIC_PATH_ONOFF:
-		if (copy_from_user(&call_acoustic_path_onoff, (void __user *) arg, sizeof(call_acoustic_path_onoff))) {
-			pr_err("snd_ioctl setCallAcousticPathOnOff: invalid pointer.\n");
+/* LGE_CHANGE_S, [junyoub.an] , 2010-09-05, To control amp*/
+#if defined (CONFIG_MACH_MSM7X27_THUNDERG)
+	case SND_SET_AMP_CONTROL:
+		if (copy_from_user(&hook_param, (void __user *) arg, sizeof(hook_param))) {
+			pr_err("snd_ioctl set_amp_mode: invalid pointer.\n");
 			rc = -EFAULT;
 			break;
 		}
 
-		call_acoustic_path_onoff_msg.args.on_off = cpu_to_be32(call_acoustic_path_onoff.on_off);
-		call_acoustic_path_onoff_msg.args.cb_func = -1;
-		call_acoustic_path_onoff_msg.args.client_data = 0;
+		hookmsg.args.mode = cpu_to_be32(hook_param.mode);
+		hookmsg.args.cb_func = -1;
+		hookmsg.args.client_data = 0;
 
+		pr_info("set_amp_mode %d \n", hook_param.mode);
 
-		pr_info("setCallAcousticPathOnOff %d \n", call_acoustic_path_onoff.on_off);
+		rc = msm_rpc_call_reply(snd->ept,
+			SND_SET_AMP_CONTROL_PROC,
+			&hookmsg, sizeof(hookmsg),&hkrep, sizeof(hkrep), 5 * HZ);
 
-		rc = msm_rpc_call(snd->ept,
-			SND_SET_CALL_ACOUSTIC_PATH_ONOFF_PROC,
-			&call_acoustic_path_onoff_msg, sizeof(call_acoustic_path_onoff_msg), 5 * HZ);
-		
 		if (rc < 0){
 			printk(KERN_ERR "%s:rpc err because of %d\n", __func__, rc);
 		}
 		else
 		{
-			call_acoustic_path_onoff.get_param = be32_to_cpu(call_acoustic_path_onoff_rep.get_on_off);
-			printk(KERN_INFO "%s:call_acoustic_path on_off ->%d\n", __func__, call_acoustic_path_onoff.get_param);
-			if (copy_to_user((void __user *)arg, &call_acoustic_path_onoff, sizeof(call_acoustic_path_onoff))) {
-				pr_err("snd_ioctl get call_acoustic_path mode: invalid write pointer.\n");
+			hook_param.get_param = be32_to_cpu(hkrep.get_mode);
+			printk(KERN_INFO "%s:amp mode ->%d\n", __func__, hook_param.get_param);
+			if (copy_to_user((void __user *)arg, &hook_param, sizeof(hook_param))) {
+				pr_err("snd_ioctl get hook mode: invalid write pointer.\n");
 				rc = -EFAULT;
 			}
 		}
 		break;
 #endif
-
+/* LGE_CHANGE_E, [junyoub.an] , 2010-09-05, To control amp*/
 	default:
 		MM_ERR("unknown command\n");
 		rc = -EINVAL;

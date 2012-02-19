@@ -24,30 +24,30 @@
 
 #ifdef CONFIG_BT
 static unsigned bt_config_power_on[] = {
-	GPIO_CFG(BT_WAKE, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA),	/* WAKE */
-	GPIO_CFG(BT_RFR, 2, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA),	/* RFR */
-	GPIO_CFG(BT_CTS, 2, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* CTS */
-	GPIO_CFG(BT_RX, 2, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* Rx */
-	GPIO_CFG(BT_TX, 3, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA),	/* Tx */
-	GPIO_CFG(BT_PCM_DOUT, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA),	/* PCM_DOUT */
-	GPIO_CFG(BT_PCM_DIN, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* PCM_DIN */
-	GPIO_CFG(BT_PCM_SYNC, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA),	/* PCM_SYNC */
-	GPIO_CFG(BT_PCM_CLK, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA),	/* PCM_CLK */
-	GPIO_CFG(BT_HOST_WAKE, 0, GPIO_INPUT, GPIO_NO_PULL, GPIO_2MA),	/* HOST_WAKE */
-	GPIO_CFG(BT_RESET_N, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_2MA),	/* RESET_N */
+	GPIO_CFG(BT_WAKE, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),	/* WAKE */
+	GPIO_CFG(BT_RFR, 2, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),	/* RFR */
+	GPIO_CFG(BT_CTS, 2, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),	/* CTS */
+	GPIO_CFG(BT_RX, 2, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),	/* Rx */
+	GPIO_CFG(BT_TX, 3, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),	/* Tx */
+	GPIO_CFG(BT_PCM_DOUT, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),	/* PCM_DOUT */
+	GPIO_CFG(BT_PCM_DIN, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),	/* PCM_DIN */
+	GPIO_CFG(BT_PCM_SYNC, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),	/* PCM_SYNC */
+	GPIO_CFG(BT_PCM_CLK, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),	/* PCM_CLK */
+	GPIO_CFG(BT_HOST_WAKE, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),	/* HOST_WAKE */
+	GPIO_CFG(BT_RESET_N, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),	/* RESET_N */
 };
 static unsigned bt_config_power_off[] = {
-	GPIO_CFG(BT_WAKE, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),	/* WAKE */
-	GPIO_CFG(BT_RFR, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),	/* RFR */
-	GPIO_CFG(BT_CTS, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),	/* CTS */
-	GPIO_CFG(BT_RX, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),	/* Rx */
-	GPIO_CFG(BT_TX, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),	/* Tx */
-	GPIO_CFG(BT_PCM_DOUT, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),	/* PCM_DOUT */
-	GPIO_CFG(BT_PCM_DIN, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),	/* PCM_DIN */
-	GPIO_CFG(BT_PCM_SYNC, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),	/* PCM_SYNC */
-	GPIO_CFG(BT_PCM_CLK, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),	/* PCM_CLK */
-	GPIO_CFG(BT_HOST_WAKE, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),	/* HOST_WAKE */
-	GPIO_CFG(BT_RESET_N, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA),	/* RESET_N */	
+	GPIO_CFG(BT_WAKE, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* WAKE */
+	GPIO_CFG(BT_RFR, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* RFR */
+	GPIO_CFG(BT_CTS, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* CTS */
+	GPIO_CFG(BT_RX, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* Rx */
+	GPIO_CFG(BT_TX, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* Tx */
+	GPIO_CFG(BT_PCM_DOUT, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* PCM_DOUT */
+	GPIO_CFG(BT_PCM_DIN, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* PCM_DIN */
+	GPIO_CFG(BT_PCM_SYNC, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* PCM_SYNC */
+	GPIO_CFG(BT_PCM_CLK, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* PCM_CLK */
+	GPIO_CFG(BT_HOST_WAKE, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* HOST_WAKE */
+	GPIO_CFG(BT_RESET_N, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),	/* RESET_N */	
 };
 
 static int thunderc_bluetooth_toggle_radio(void *data, bool state)
@@ -55,7 +55,7 @@ static int thunderc_bluetooth_toggle_radio(void *data, bool state)
 	int ret;
 	int (*power_control)(int enable);
 
-	power_control = ((struct bluetooth_platform_data *)data)->bluetooth_power;
+    power_control = ((struct bluetooth_platform_data *)data)->bluetooth_power;
 	ret = (*power_control)((state == RFKILL_USER_STATE_SOFT_BLOCKED) ? 1 : 0);
 	return ret;
 }
@@ -69,7 +69,7 @@ static int thunderc_bluetooth_power(int on)
 	if (on) {
 		for (pin = 0; pin < ARRAY_SIZE(bt_config_power_on); pin++) {
 			rc = gpio_tlmm_config(bt_config_power_on[pin],
-					      GPIO_ENABLE);
+					      GPIO_CFG_ENABLE);
 			if (rc) {
 				printk(KERN_ERR
 					"%s: gpio_tlmm_config(%#x)=%d\n",
@@ -77,9 +77,9 @@ static int thunderc_bluetooth_power(int on)
 				return -EIO;
 			}
 		}
-		//Turn Bluetooth Power On if and only if not turned on by WLAN yet.
-		if (!gpio_get_value(CONFIG_BCM4325_GPIO_WL_REGON)) //#23
-			gpio_set_value(CONFIG_BCM4325_GPIO_WL_REGON, 1); //#23
+        //Turn Bluetooth Power On if and only if not turned on by WLAN yet.
+        if (!gpio_get_value(CONFIG_BCM4325_GPIO_WL_REGON)) //#23
+		    gpio_set_value(CONFIG_BCM4325_GPIO_WL_REGON, 1); //#23
 		mdelay(100);
 		gpio_set_value(BT_RESET_N, 0);
 		mdelay(100);
@@ -87,14 +87,14 @@ static int thunderc_bluetooth_power(int on)
 		mdelay(100);
 
 	} else {
-		//Turn Bluetooth Power Off if and only if not used by WLAN anymore.
-		if (!gpio_get_value(CONFIG_BCM4325_GPIO_WL_RESET)) //#93
-			gpio_set_value(CONFIG_BCM4325_GPIO_WL_REGON, 0); //#23
+        //Turn Bluetooth Power Off if and only if not used by WLAN anymore.
+        if (!gpio_get_value(CONFIG_BCM4325_GPIO_WL_RESET)) //#93
+         gpio_set_value(CONFIG_BCM4325_GPIO_WL_REGON, 0); //#23
 
 		gpio_set_value(BT_RESET_N, 0);
 		for (pin = 0; pin < ARRAY_SIZE(bt_config_power_off); pin++) {
 			rc = gpio_tlmm_config(bt_config_power_off[pin],
-					      GPIO_ENABLE);
+					      GPIO_CFG_ENABLE);
 			if (rc) {
 				printk(KERN_ERR
 					"%s: gpio_tlmm_config(%#x)=%d\n",
@@ -118,9 +118,6 @@ static struct platform_device msm_bt_power_device = {
 	},		
 };
 
-/* LGE_CHANGE [dojip.kim@lge.com] 2010-06-09, [LS670]
- * FIXME: temporarily call the power off for the current consumption
- */
 static void __init bt_power_init(void)
 {
 	int pin, rc;
@@ -128,7 +125,7 @@ static void __init bt_power_init(void)
 	/* Power On */
 	for (pin = 0; pin < ARRAY_SIZE(bt_config_power_on); pin++) {
 		rc = gpio_tlmm_config(bt_config_power_on[pin],
-				      GPIO_ENABLE);
+				      GPIO_CFG_ENABLE);
 		if (rc) {
 			printk(KERN_ERR
 				"%s: gpio_tlmm_config(%#x)=%d\n",
@@ -153,7 +150,7 @@ static void __init bt_power_init(void)
 	gpio_set_value(BT_RESET_N, 0);
 	for (pin = 0; pin < ARRAY_SIZE(bt_config_power_off); pin++) {
 		rc = gpio_tlmm_config(bt_config_power_off[pin],
-				      GPIO_ENABLE);
+				      GPIO_CFG_ENABLE);
 		if (rc) {
 			printk(KERN_ERR
 				"%s: gpio_tlmm_config(%#x)=%d\n",

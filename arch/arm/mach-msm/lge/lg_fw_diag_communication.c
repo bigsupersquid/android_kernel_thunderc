@@ -1,25 +1,11 @@
 /*
- * Copyright (c) 2010 LGE. All rights reserved.
+ *   LG_FW_AUDIO_TESTMODE
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
-/*
- * LGE_CHANGE_S [kiwone.seo@lge.com] 2010-02-03, LG_FW_AUDIO_TESTMODE
- *
- * kiwone creates this file for audio test mode, 
- * and the use of another function to send framework.
- */
-
+ *   kiwone creates this file for audio test mode, and the use of another function to send framework.
+*/
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include "lg_fw_diag_communication.h"
@@ -50,7 +36,7 @@ static int diagcmd_probe(struct platform_device *pdev)
 	int ret = 0;
 
 	if (!pdata){
-		D("diagcmd_probe pdata is NULL\n");
+		D("diagcmd_probe pdata err:%s\n", pdata->name);
 		return -EBUSY;
 	}
 

@@ -341,8 +341,8 @@ int thunderc_vibrator_pwm_set(int enable, int amp)
 		REG_WRITEL((gain & GPMN_D_MASK), GP_MN_CLK_DUTY_REG);
 
 		/* LGE_CHANGE [dojip.kim@lge.com] 2010-06-12, GP_MN */
-		gpio_tlmm_config(GPIO_CFG(GPIO_LIN_MOTOR_PWM,1,GPIO_OUTPUT,
-					  GPIO_PULL_DOWN,GPIO_2MA),GPIO_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(GPIO_LIN_MOTOR_PWM,1,GPIO_CFG_OUTPUT,
+					  GPIO_CFG_PULL_DOWN,GPIO_CFG_2MA),GPIO_CFG_ENABLE);
 		REG_WRITEL((gain & GPMN_D_MASK), GP_MN_CLK_DUTY_REG);
 	} else {
 		// LGE_CHANGE [dojip.kim@lge.com] 2010-07-21, pwm sleep (from MS690)
@@ -352,8 +352,8 @@ int thunderc_vibrator_pwm_set(int enable, int amp)
 
 		REG_WRITEL(GPMN_D_DEFAULT, GP_MN_CLK_DUTY_REG);
 		/* LGE_CHANGE [dojip.kim@lge.com] 2010-06-12, GPIO */
-		gpio_tlmm_config(GPIO_CFG(GPIO_LIN_MOTOR_PWM,0,GPIO_OUTPUT,
-					  GPIO_PULL_DOWN,GPIO_2MA),GPIO_ENABLE);
+		gpio_tlmm_config(GPIO_CFG(GPIO_LIN_MOTOR_PWM,0,GPIO_CFG_OUTPUT,
+					  GPIO_CFG_PULL_DOWN,GPIO_CFG_2MA),GPIO_CFG_ENABLE);
 		gpio_direction_output(GPIO_LIN_MOTOR_PWM, 0);
 	}
 

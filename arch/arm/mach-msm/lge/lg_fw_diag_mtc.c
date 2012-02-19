@@ -82,6 +82,7 @@ extern mtc_user_table_entry_type mtc_mstr_tbl[MTC_MSTR_TBL_SIZE];
 
 unsigned char g_diag_mtc_check = 0;
 static char mtc_running = 0;
+unsigned char g_diag_mtc_capture_rsp_num = 0;
 
 static mtc_lcd_info_type lcd_info;
 

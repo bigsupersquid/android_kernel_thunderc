@@ -53,7 +53,9 @@ struct msm_ptbl_entry {
 /* LGE_CHANGE [james.jang@lge.com] 2010-07-12, 
      only LS670 for FOTA 8 -> 9 */
 //#define MSM_MAX_PARTITIONS 8
+/*START niting reverted back partition as fota is not supported now*/
 #define MSM_MAX_PARTITIONS 9
+/*END niting reverted back partition as fota is not supported now*/
 #endif
 /* LGE_CHANGE_E */
 

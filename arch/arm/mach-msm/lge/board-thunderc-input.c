@@ -120,8 +120,9 @@ static struct gpio_event_info *thunder_keypad_info[] = {
 	&thunder_keypad_matrix_info.info
 };
 
+//LGE_CHANGE [pranav.s@lge.com]:changed the device name from "thunder_keypad" to "thunderc_keypad" .
 static struct gpio_event_platform_data thunder_keypad_data = {
-	.name		= "thunder_keypad",
+	.name		= "thunderc_keypad",
 	.info		= thunder_keypad_info,
 	.info_count	= ARRAY_SIZE(thunder_keypad_info)
 };
@@ -260,10 +261,12 @@ static void __init thunderc_init_i2c_touch(int bus_num)
 /* accelerometer */
 static int kr3dh_config_gpio(int config)
 {
-	if (config) { /* for wake state */
+	if (config)
+	{		/* for wake state */
 	}
-	else { /* for sleep state */
-		gpio_tlmm_config(GPIO_CFG(ACCEL_GPIO_INT, 0, GPIO_INPUT, GPIO_PULL_DOWN, GPIO_2MA), GPIO_ENABLE);
+	else
+	{		/* for sleep state */
+		gpio_tlmm_config(GPIO_CFG(ACCEL_GPIO_INT, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	}
 
 	return 0;
@@ -278,14 +281,29 @@ static void kr_exit(void)
 {
 }
 
-static int power_on(void)
+static int accel_power_on(void)
 {
-	return 0;
+	int ret = 0;
+	struct vreg *gp3_vreg = vreg_get(0, "gp3");
+
+	printk("[Accelerometer] %s() : Power On\n",__FUNCTION__);
+
+	vreg_set_level(gp3_vreg, 3000);
+	vreg_enable(gp3_vreg);
+
+	return ret;
 }
 
-static int power_off(void)
+static int accel_power_off(void)
 {
-	return 0;
+	int ret = 0;
+	struct vreg *gp3_vreg = vreg_get(0, "gp3");
+
+	printk("[Accelerometer] %s() : Power Off\n",__FUNCTION__);
+
+	vreg_disable(gp3_vreg);
+
+	return ret;
 }
 
 struct kr3dh_platform_data kr3dh_data = {
@@ -300,8 +318,8 @@ struct kr3dh_platform_data kr3dh_data = {
 	.negate_y = 0,
 	.negate_z = 0,
 
-	.power_on = power_on,
-	.power_off = power_off,
+	.power_on = accel_power_on,
+	.power_off = accel_power_off,
 	.kr_init = kr_init,
 	.kr_exit = kr_exit,
 	.gpio_config = kr3dh_config_gpio,
@@ -364,44 +382,34 @@ static void __init thunderc_init_i2c_acceleration(int bus_num)
 #define ECOM_POWER_ON		1
 
 static int ecom_is_power_on = ECOM_POWER_OFF;
-
 static int ecom_power_set(unsigned char onoff)
 {
 	int ret = 0;
 	struct vreg *gp3_vreg = vreg_get(0, "gp3");
-	struct vreg *gp6_vreg = vreg_get(0, "gp6"); /* prox */
+	struct vreg *gp6_vreg = vreg_get(0, "gp6");
 
-	printk("[Ecompass] %s() onoff %d, prev_status %d\n",__FUNCTION__, 
-			onoff, ecom_is_power_on);
+	printk("[Ecompass] %s() : Power %s\n",__FUNCTION__, onoff ? "On" : "Off");
 
 	if (onoff) {
 		if (ecom_is_power_on == ECOM_POWER_OFF) {
-			vreg_set_level(gp3_vreg, 3000);
-			vreg_enable(gp3_vreg);
-			/* proximity power on , 
-			 * when we turn off I2C line be set to low caues sensor H/W characteristic 
-			 */
-			/* LGE_CHANGE [dojip.kim@lge.com] 2010-08-22, [LS670]
-			 * change the voltage: 3.0V -> 2.9V
-			 */
+		vreg_set_level(gp3_vreg, 3000);
+		vreg_enable(gp3_vreg);
+
+		/* proximity power on , when we turn off I2C line be set to low caues sensor H/W characteristic */
 #ifdef CONFIG_MACH_MSM7X27_THUNDERC_SPRINT
 			vreg_set_level(gp6_vreg, 2900);
 #else
 			vreg_set_level(gp6_vreg, 2800);
 #endif
-			vreg_enable(gp6_vreg);
-
+		vreg_enable(gp6_vreg);
 			ecom_is_power_on = ECOM_POWER_ON;
 		}
 	} else {
 		if (ecom_is_power_on == ECOM_POWER_ON) {
-			vreg_disable(gp3_vreg);
+		vreg_disable(gp3_vreg);
 
-			/* proximity power on , 
-			 * when we turn off I2C line be set to low caues sensor H/W characteristic 
-			 */
-			vreg_disable(gp6_vreg);
-
+		/* proximity power off */
+		vreg_disable(gp6_vreg);
 			ecom_is_power_on = ECOM_POWER_OFF;
 		}
 	}
@@ -426,8 +434,7 @@ static int prox_power_set(unsigned char onoff)
 	int ret = 0;
 	struct vreg *gp6_vreg = vreg_get(0, "gp6");
 
-	printk("[Proxi] %s() onoff %d, prev_status %d\n",__FUNCTION__, 
-			onoff, prox_is_power_on);
+	printk("[Proximity] %s() : Power %s\n",__FUNCTION__, onoff ? "On" : "Off");
 
 	if (onoff) {
 		/* LGE_CHANGE [dojip.kim@lge.com] 2010-05-24, [LS670]
@@ -461,8 +468,8 @@ static int prox_power_set(unsigned char onoff)
 static struct proximity_platform_data proxi_pdata = {
 	.irq_num	= PROXI_GPIO_DOUT,
 	.power		= prox_power_set,
-	.methods		= 0, // normal mode (1 - interrupt mode)
-	.operation_mode		= 0, // A mode (1 - B1, 2 - B2)
+	.methods		= 0,
+	.operation_mode		= 0,
 	.debounce	 = 0,
 	.cycle = 2,
 };
