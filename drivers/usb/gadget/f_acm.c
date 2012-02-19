@@ -4,7 +4,8 @@
  * Copyright (C) 2003 Al Borchers (alborchers@steinerpoint.com)
  * Copyright (C) 2008 by David Brownell
  * Copyright (C) 2008 by Nokia Corporation
- * Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+ * Copyright (C) 2009 by Samsung Electronics
+ * Author: Michal Nazarewicz (m.nazarewicz@samsung.com)
  *
  * This software is distributed under the terms of the GNU General
  * Public License ("GPL") as published by the Free Software Foundation,
@@ -13,8 +14,10 @@
 
 /* #define VERBOSE_DEBUG */
 
+#include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
+#include <linux/usb/android_composite.h>
 
 #include "u_serial.h"
 #include "gadget_chips.h"
@@ -49,7 +52,6 @@ struct f_acm {
 	u8				port_num;
 
 	u8				pending;
-	u8				online;
 
 	/* lock is mostly for pending and notify_req ... they get accessed
 	 * by callbacks both from tty (open/close/break) under its spinlock,
@@ -97,19 +99,35 @@ static inline struct f_acm *port_to_acm(struct gserial *p)
 /* notification endpoint uses smallish and infrequent fixed-size messages */
 
 #define GS_LOG2_NOTIFY_INTERVAL		5	/* 1 << 5 == 32 msec */
+
+
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_ACM_FIX
+/* LGE_CHANGE
+ * Apply CDC ACM function fixup for LG Android USB
+ * 2011-01-12, hyunhui.park@lge.com
+ */
+#define GS_NOTIFY_MAXPACKET		16	/* For LG host driver */
+#else
 #define GS_NOTIFY_MAXPACKET		10	/* notification + 2 bytes */
+#endif
 
 /* interface and class descriptors: */
 
-struct usb_interface_assoc_descriptor acm_interface_assoc_desc = {
-	.bLength           = 8,
-	.bDescriptorType   = USB_DT_INTERFACE_ASSOCIATION,
-	.bInterfaceCount   = 2,
-	.bFunctionClass    = USB_CLASS_COMM,
-	.bFunctionSubClass = USB_CDC_SUBCLASS_ACM,
-	.bFunctionProtocol = USB_CDC_ACM_PROTO_AT_V25TER,
+static struct usb_interface_assoc_descriptor
+acm_iad_descriptor = {
+	.bLength =		sizeof acm_iad_descriptor,
+	.bDescriptorType =	USB_DT_INTERFACE_ASSOCIATION,
+
+	/* .bFirstInterface =	DYNAMIC, */
+	.bInterfaceCount = 	2,	// control + data
+	.bFunctionClass =	USB_CLASS_COMM,
+	.bFunctionSubClass =	USB_CDC_SUBCLASS_ACM,
+	.bFunctionProtocol =	USB_CDC_PROTO_NONE,
+	/* .iFunction =		DYNAMIC */
 };
-static struct usb_interface_descriptor acm_control_interface_desc  = {
+
+
+static struct usb_interface_descriptor acm_control_interface_desc = {
 	.bLength =		USB_DT_INTERFACE_SIZE,
 	.bDescriptorType =	USB_DT_INTERFACE,
 	/* .bInterfaceNumber = DYNAMIC */
@@ -120,7 +138,7 @@ static struct usb_interface_descriptor acm_control_interface_desc  = {
 	/* .iInterface = DYNAMIC */
 };
 
-static struct usb_interface_descriptor acm_data_interface_desc  = {
+static struct usb_interface_descriptor acm_data_interface_desc = {
 	.bLength =		USB_DT_INTERFACE_SIZE,
 	.bDescriptorType =	USB_DT_INTERFACE,
 	/* .bInterfaceNumber = DYNAMIC */
@@ -131,7 +149,7 @@ static struct usb_interface_descriptor acm_data_interface_desc  = {
 	/* .iInterface = DYNAMIC */
 };
 
-static struct usb_cdc_header_desc acm_header_desc  = {
+static struct usb_cdc_header_desc acm_header_desc = {
 	.bLength =		sizeof(acm_header_desc),
 	.bDescriptorType =	USB_DT_CS_INTERFACE,
 	.bDescriptorSubType =	USB_CDC_HEADER_TYPE,
@@ -139,7 +157,7 @@ static struct usb_cdc_header_desc acm_header_desc  = {
 };
 
 static struct usb_cdc_call_mgmt_descriptor
-acm_call_mgmt_descriptor  = {
+acm_call_mgmt_descriptor = {
 	.bLength =		sizeof(acm_call_mgmt_descriptor),
 	.bDescriptorType =	USB_DT_CS_INTERFACE,
 	.bDescriptorSubType =	USB_CDC_CALL_MANAGEMENT_TYPE,
@@ -147,14 +165,14 @@ acm_call_mgmt_descriptor  = {
 	/* .bDataInterface = DYNAMIC */
 };
 
-static struct usb_cdc_acm_descriptor acm_descriptor  = {
+static struct usb_cdc_acm_descriptor acm_descriptor = {
 	.bLength =		sizeof(acm_descriptor),
 	.bDescriptorType =	USB_DT_CS_INTERFACE,
 	.bDescriptorSubType =	USB_CDC_ACM_TYPE,
 	.bmCapabilities =	USB_CDC_CAP_LINE,
 };
 
-static struct usb_cdc_union_desc acm_union_desc  = {
+static struct usb_cdc_union_desc acm_union_desc = {
 	.bLength =		sizeof(acm_union_desc),
 	.bDescriptorType =	USB_DT_CS_INTERFACE,
 	.bDescriptorSubType =	USB_CDC_UNION_TYPE,
@@ -164,7 +182,7 @@ static struct usb_cdc_union_desc acm_union_desc  = {
 
 /* full speed support: */
 
-static struct usb_endpoint_descriptor acm_fs_notify_desc  = {
+static struct usb_endpoint_descriptor acm_fs_notify_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
@@ -173,22 +191,22 @@ static struct usb_endpoint_descriptor acm_fs_notify_desc  = {
 	.bInterval =		1 << GS_LOG2_NOTIFY_INTERVAL,
 };
 
-static struct usb_endpoint_descriptor acm_fs_in_desc  = {
+static struct usb_endpoint_descriptor acm_fs_in_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 };
 
-static struct usb_endpoint_descriptor acm_fs_out_desc  = {
+static struct usb_endpoint_descriptor acm_fs_out_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 };
 
-static struct usb_descriptor_header *acm_fs_function[]  = {
-	(struct usb_descriptor_header *) &acm_interface_assoc_desc,
+static struct usb_descriptor_header *acm_fs_function[] = {
+	(struct usb_descriptor_header *) &acm_iad_descriptor,
 	(struct usb_descriptor_header *) &acm_control_interface_desc,
 	(struct usb_descriptor_header *) &acm_header_desc,
 	(struct usb_descriptor_header *) &acm_call_mgmt_descriptor,
@@ -203,7 +221,7 @@ static struct usb_descriptor_header *acm_fs_function[]  = {
 
 /* high speed support: */
 
-static struct usb_endpoint_descriptor acm_hs_notify_desc  = {
+static struct usb_endpoint_descriptor acm_hs_notify_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
@@ -212,22 +230,22 @@ static struct usb_endpoint_descriptor acm_hs_notify_desc  = {
 	.bInterval =		GS_LOG2_NOTIFY_INTERVAL+4,
 };
 
-static struct usb_endpoint_descriptor acm_hs_in_desc  = {
+static struct usb_endpoint_descriptor acm_hs_in_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 	.wMaxPacketSize =	cpu_to_le16(512),
 };
 
-static struct usb_endpoint_descriptor acm_hs_out_desc  = {
+static struct usb_endpoint_descriptor acm_hs_out_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
 	.wMaxPacketSize =	cpu_to_le16(512),
 };
 
-static struct usb_descriptor_header *acm_hs_function[]  = {
-	(struct usb_descriptor_header *) &acm_interface_assoc_desc,
+static struct usb_descriptor_header *acm_hs_function[] = {
+	(struct usb_descriptor_header *) &acm_iad_descriptor,
 	(struct usb_descriptor_header *) &acm_control_interface_desc,
 	(struct usb_descriptor_header *) &acm_header_desc,
 	(struct usb_descriptor_header *) &acm_call_mgmt_descriptor,
@@ -244,11 +262,13 @@ static struct usb_descriptor_header *acm_hs_function[]  = {
 
 #define ACM_CTRL_IDX	0
 #define ACM_DATA_IDX	1
+#define ACM_IAD_IDX	2
 
 /* static strings, in UTF-8 */
 static struct usb_string acm_string_defs[] = {
 	[ACM_CTRL_IDX].s = "CDC Abstract Control Model (ACM)",
 	[ACM_DATA_IDX].s = "CDC ACM Data",
+	[ACM_IAD_IDX ].s = "CDC Serial",
 	{  /* ZEROES END LIST */ },
 };
 
@@ -396,10 +416,10 @@ static int acm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			usb_ep_disable(acm->notify);
 		} else {
 			VDBG(cdev, "init acm ctrl interface %d\n", intf);
-			acm->notify_desc = ep_choose(cdev->gadget,
-					acm->hs.notify,
-					acm->fs.notify);
 		}
+		acm->notify_desc = ep_choose(cdev->gadget,
+				acm->hs.notify,
+				acm->fs.notify);
 		usb_ep_enable(acm->notify, acm->notify_desc);
 		acm->notify->driver_data = acm;
 
@@ -409,16 +429,15 @@ static int acm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			gserial_disconnect(&acm->port);
 		} else {
 			DBG(cdev, "activate acm ttyGS%d\n", acm->port_num);
-			acm->port.in_desc = ep_choose(cdev->gadget,
-					acm->hs.in, acm->fs.in);
-			acm->port.out_desc = ep_choose(cdev->gadget,
-					acm->hs.out, acm->fs.out);
 		}
+		acm->port.in_desc = ep_choose(cdev->gadget,
+				acm->hs.in, acm->fs.in);
+		acm->port.out_desc = ep_choose(cdev->gadget,
+				acm->hs.out, acm->fs.out);
 		gserial_connect(&acm->port, acm->port_num);
 
 	} else
 		return -EINVAL;
-	acm->online = 1;
 
 	return 0;
 }
@@ -430,9 +449,7 @@ static void acm_disable(struct usb_function *f)
 
 	DBG(cdev, "acm ttyGS%d deactivated\n", acm->port_num);
 	gserial_disconnect(&acm->port);
-	usb_ep_fifo_flush(acm->notify);
 	usb_ep_disable(acm->notify);
-	acm->online = 0;
 	acm->notify->driver_data = NULL;
 }
 
@@ -447,7 +464,7 @@ static void acm_disable(struct usb_function *f)
  * @length: size of data
  * Context: irqs blocked, acm->lock held, acm_notify_req non-null
  *
- * Returns zero on sucess or a negative errno.
+ * Returns zero on success or a negative errno.
  *
  * See section 6.3.5 of the CDC 1.1 specification for information
  * about the only notification we issue:  SerialState change.
@@ -458,15 +475,39 @@ static int acm_cdc_notify(struct f_acm *acm, u8 type, u16 value,
 	struct usb_ep			*ep = acm->notify;
 	struct usb_request		*req;
 	struct usb_cdc_notification	*notify;
+#ifndef CONFIG_USB_SUPPORT_LGE_ANDROID_ACM_FIX
+	/* LGE_CHANGE
+	 * Apply CDC ACM function fixup for LG Android USB
+	 * 2011-01-12, hyunhui.park@lge.com
+	 */
 	const unsigned			len = sizeof(*notify) + length;
+#endif
 	void				*buf;
 	int				status;
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_ACM_FIX
+	/* LGE_CHANGE
+	 * Apply CDC ACM function fixup for LG Android USB
+	 * 2011-01-12, hyunhui.park@lge.com
+	 */
+	unsigned char noti_buf[GS_NOTIFY_MAXPACKET];
+
+	memset(noti_buf, 0, GS_NOTIFY_MAXPACKET);
+#endif
 
 	req = acm->notify_req;
 	acm->notify_req = NULL;
 	acm->pending = false;
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_ACM_FIX
+	/* LGE_CHANGE
+	 * Apply CDC ACM function fixup for LG Android USB
+	 * 2011-01-12, hyunhui.park@lge.com
+	 */
+	req->length = GS_NOTIFY_MAXPACKET;
+#else
 	req->length = len;
+#endif
+
 	notify = req->buf;
 	buf = notify + 1;
 
@@ -476,7 +517,16 @@ static int acm_cdc_notify(struct f_acm *acm, u8 type, u16 value,
 	notify->wValue = cpu_to_le16(value);
 	notify->wIndex = cpu_to_le16(acm->ctrl_id);
 	notify->wLength = cpu_to_le16(length);
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_ACM_FIX
+	/* LGE_CHANGE
+	 * Apply CDC ACM function fixup for LG Android USB
+	 * 2011-01-12, hyunhui.park@lge.com
+	 */
+	memcpy(noti_buf, data, length);
+	memcpy(buf, noti_buf, GS_NOTIFY_MAXPACKET);
+#else
 	memcpy(buf, data, length);
+#endif
 
 	/* ep_queue() can complete immediately if it fills the fifo... */
 	spin_unlock(&acm->lock);
@@ -526,7 +576,7 @@ static void acm_cdc_notify_complete(struct usb_ep *ep, struct usb_request *req)
 	acm->notify_req = req;
 	spin_unlock(&acm->lock);
 
-	if (doit && acm->online)
+	if (doit)
 		acm_notify_serial_state(acm);
 }
 
@@ -540,6 +590,8 @@ static void acm_connect(struct gserial *port)
 	acm_notify_serial_state(acm);
 }
 
+//LGSI_CHANGE_START[satheesh.murugan@lge.com]
+/* LGE_CHANGES_S [moses.son@lge.com] 2011-02-24, bryce porting  */
 unsigned int acm_get_dtr(struct gserial *port)
 {
 	struct f_acm		*acm = port_to_acm(port);
@@ -589,6 +641,8 @@ unsigned int acm_send_ring_indicator(struct gserial *port, unsigned int yes)
 	return acm_notify_serial_state(acm);
 
 }
+/* LGE_CHANGES_E [moses.son@lge.com] 2011-02-24 */
+//LGSI_CHANGE_END[satheesh.murugan@lge.com]
 static void acm_disconnect(struct gserial *port)
 {
 	struct f_acm		*acm = port_to_acm(port);
@@ -627,7 +681,7 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 	if (status < 0)
 		goto fail;
 	acm->ctrl_id = status;
-	acm_interface_assoc_desc.bFirstInterface = status;
+	acm_iad_descriptor.bFirstInterface = status;
 
 	acm_control_interface_desc.bInterfaceNumber = status;
 	acm_union_desc .bMasterInterface0 = status;
@@ -739,24 +793,34 @@ acm_unbind(struct usb_configuration *c, struct usb_function *f)
 	if (gadget_is_dualspeed(c->cdev->gadget))
 		usb_free_descriptors(f->hs_descriptors);
 	usb_free_descriptors(f->descriptors);
-	gs_free_req(acm->notify, acm->notify_req);
+
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_ACM_FIX
+	/* LGE_CHANGE
+	 * This prevents kernel panic from QCT's acm patch
+	 * 2011-01-12, hyunhui.park@lge.com
+	 */
+	if (acm->notify_req)
+		gs_free_req(acm->notify, acm->notify_req);
+#endif
+
 	kfree(acm);
 }
 
 /* Some controllers can't support CDC ACM ... */
 static inline bool can_support_cdc(struct usb_configuration *c)
 {
-	/* SH3 doesn't support multiple interfaces */
-	if (gadget_is_sh(c->cdev->gadget))
-		return false;
-
-	/* sa1100 doesn't have a third interrupt endpoint */
-	if (gadget_is_sa1100(c->cdev->gadget))
-		return false;
-
 	/* everything else is *probably* fine ... */
 	return true;
 }
+
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
+/* LGE_CHANGE
+ * To bind LG AndroidNet, another ACM instance
+ * named "acm2" is used.
+ * 2011-01-12, hyunhui.park@lge.com
+ */
+static int acm_count;
+#endif
 
 /**
  * acm_bind_config - add a CDC ACM function to a configuration
@@ -797,6 +861,13 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 		acm_string_defs[ACM_DATA_IDX].id = status;
 
 		acm_data_interface_desc.iInterface = status;
+
+		status = usb_string_id(c->cdev);
+		if (status < 0)
+			return status;
+		acm_string_defs[ACM_IAD_IDX].id = status;
+
+		acm_iad_descriptor.iFunction = status;
 	}
 
 	/* allocate and initialize one new instance */
@@ -809,14 +880,33 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 	acm->port_num = port_num;
 
 	acm->port.connect = acm_connect;
+//LGSI_CHANGE_START[satheesh.murugan@lge.com]
+/* LGE_CHANGES_S [moses.son@lge.com] 2011-02-24, bryce porting	*/
 	acm->port.get_dtr = acm_get_dtr;
 	acm->port.get_rts = acm_get_rts;
 	acm->port.send_carrier_detect = acm_send_carrier_detect;
 	acm->port.send_ring_indicator = acm_send_ring_indicator;
+/* LGE_CHANGES_E [moses.son@lge.com] 2011-02-24 */
+//LGSI_CHANGE_END[satheesh.murugan@lge.com]
 	acm->port.disconnect = acm_disconnect;
 	acm->port.send_break = acm_send_break;
 
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
+	/* LGE_CHANGE
+	 * To bind LG AndroidNet, another ACM instance
+	 * named "acm2" is used.
+	 * 2011-01-12, hyunhui.park@lge.com
+	 */
+	if (!acm_count)
+		acm->port.func.name = "acm";
+	else
+		acm->port.func.name = "acm2";
+
+	acm_count++;
+
+#else /* below is original */
 	acm->port.func.name = "acm";
+#endif
 	acm->port.func.strings = acm_strings;
 	/* descriptors are per-instance copies */
 	acm->port.func.bind = acm_bind;
@@ -830,3 +920,97 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 		kfree(acm);
 	return status;
 }
+
+#ifdef CONFIG_USB_ANDROID_ACM
+/* LGE_CHANGE
+ * Add ACM platform data
+ * 2011-01-12, hyunhui.park@lge.com
+ */
+#include <linux/platform_device.h>
+
+static struct acm_platform_data *acm_pdata;
+
+static int __init acm_probe(struct platform_device *pdev)
+{
+	if (pdev)
+		acm_pdata = pdev->dev.platform_data;
+
+	return 0;
+}
+
+static struct platform_driver acm_platform_driver __refdata = {
+	.driver = { .name = "acm", },
+};
+
+int acm_function_bind_config(struct usb_configuration *c)
+{
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
+	/* LGE_CHANGE
+	 * Add ACM platform data
+	 * 2011-01-12, hyunhui.park@lge.com
+	 */
+	int i;
+	u8 num_inst = acm_pdata ? acm_pdata->num_inst : 1;
+	int ret;
+
+	/* Another port will be used by nmea */
+	ret = gserial_setup(c->cdev->gadget, num_inst+1);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < num_inst; i++) {
+		ret = acm_bind_config(c, i);
+		if (ret) {
+			pr_err("Could not bind acm%u config\n", i);
+			break;
+		}
+	}
+
+	return ret;
+#else /* below is original */
+	int ret = acm_bind_config(c, 0);
+	if (ret == 0)
+		gserial_setup(c->cdev->gadget, 1);
+	return ret;
+#endif
+}
+
+static struct android_usb_function acm_function = {
+	.name = "acm",
+	.bind_config = acm_function_bind_config,
+};
+
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
+/* LGE_CHANGE
+ * Add ACM function instance named "acm2".
+ * 2011-01-12, hyunhui.park@lge.com
+ */
+int acm2_function_bind_config(struct usb_configuration *c)
+{
+	int ret = acm_bind_config(c, 0);
+	return ret;
+}
+
+static struct android_usb_function acm2_function = {
+	.name = "acm2",
+	.bind_config = acm2_function_bind_config,
+};
+#endif
+
+static int __init init(void)
+{
+	printk(KERN_INFO "f_acm init\n");
+	platform_driver_probe(&acm_platform_driver, acm_probe);
+	android_register_function(&acm_function);
+#ifdef CONFIG_USB_SUPPORT_LGE_ANDROID_GADGET_FIX
+	/* LGE_CHANGE
+	 * Add ACM function instance named "acm2".
+	 * 2011-01-12, hyunhui.park@lge.com
+	 */
+	android_register_function(&acm2_function);
+#endif
+	return 0;
+}
+module_init(init);
+
+#endif /* CONFIG_USB_ANDROID_ACM */
