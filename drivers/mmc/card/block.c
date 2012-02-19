@@ -23,6 +23,7 @@
 
 #include <linux/kernel.h>
 #include <linux/fs.h>
+#include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/hdreg.h>
 #include <linux/kdev_t.h>
@@ -44,9 +45,9 @@
 MODULE_ALIAS("mmc:block");
 
 /*
- * max 16 partitions per card
+ * max 32 partitions per card
  */
-#define MMC_SHIFT	4
+#define MMC_SHIFT	5
 #define MMC_NUM_MINORS	(256 >> MMC_SHIFT)
 
 static DECLARE_BITMAP(dev_use, MMC_NUM_MINORS);
@@ -85,11 +86,7 @@ static void mmc_blk_put(struct mmc_blk_data *md)
 	mutex_lock(&open_lock);
 	md->usage--;
 	if (md->usage == 0) {
-		int devmaj = MAJOR(disk_devt(md->disk));
-		int devidx = MINOR(disk_devt(md->disk)) >> MMC_SHIFT;
-
-		if (!devmaj)
-			devidx = md->disk->first_minor >> MMC_SHIFT;
+		int devidx = md->disk->first_minor >> MMC_SHIFT;
 
 		blk_cleanup_queue(md->queue.queue);
 
@@ -376,6 +373,14 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		 * until later as we need to wait for the card to leave
 		 * programming mode even when things go wrong.
 		 */
+		// LGE_CHANGE [dojip.kim@lge.com] 2010-08-29,
+		// don't redo I/O when nomedium error
+
+#if defined(CONFIG_MACH_LGE)
+		if (brq.cmd.error == -ENOMEDIUM) {
+			goto cmd_err;
+		}
+#endif
 		if (brq.cmd.error || brq.data.error || brq.stop.error) {
 			if (brq.data.blocks > 1 && rq_data_dir(req) == READ) {
 				/* Redo read one sector at a time */
@@ -443,14 +448,6 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 				goto cmd_err;
 #endif
 		}
-
-		// LGE_CHANGE [dojip.kim@lge.com] 2010-08-29,
-		// don't redo I/O when nomedium error
-#if defined(CONFIG_MACH_LGE)
-		if (brq.cmd.error == -ENOMEDIUM) {
-			goto cmd_err;
-		}
-#endif
 
 		if (brq.cmd.error || brq.stop.error || brq.data.error) {
 			if (rq_data_dir(req) == READ) {
@@ -571,6 +568,7 @@ static struct mmc_blk_data *mmc_blk_alloc(struct mmc_card *card)
 	md->disk->private_data = md;
 	md->disk->queue = md->queue.queue;
 	md->disk->driverfs_dev = &card->dev;
+	md->disk->flags = GENHD_FL_EXT_DEVT;
 
 	/*
 	 * As discussed on lkml, GENHD_FL_REMOVABLE should:

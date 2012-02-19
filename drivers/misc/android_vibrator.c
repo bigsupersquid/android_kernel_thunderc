@@ -22,16 +22,15 @@
  */
 
 #include <linux/platform_device.h>
+#include <mach/gpio.h>
 #include <linux/delay.h>
 #include <linux/timer.h>
 #include <linux/err.h>
-#include <linux/sched.h>
-#include <mach/gpio.h>
 #include <mach/board_lge.h>
 #include <mach/timed_output.h>
 
 struct android_vibrator_platform_data *vibe_data = 0;
-static atomic_t vibe_gain = ATOMIC_INIT(128); /* default max gain */
+static atomic_t vibe_gain = ATOMIC_INIT(128); /* default max gain value is 128 */
 
 struct timed_vibrator_data {
 	struct timed_output_dev dev;
@@ -42,15 +41,14 @@ struct timed_vibrator_data {
 	u8 		active_low;
 };
 
-
-#if defined(CONFIG_VIB_USE_WORK_QUEUE)	/* C710 Rev.D */
-static atomic_t nForce = ATOMIC_INIT(128); /* default max gain */
+#if defined(CONFIG_VIB_USE_WORK_QUEUE)	/* copy form  C710 (Rev.D) */
+static atomic_t nForce = ATOMIC_INIT(128);
 struct work_struct vib_power_set_work_queue;
 // LGE_CHANGE [dojip.kim@lge.com] 2010-08-06, single thread workqueue
 static struct workqueue_struct *vibrator_wq = NULL;
 #endif	/* CONFIG_VIB_USE_WORK_QUEUE */
 
-static int android_vibrator_initialize(void)
+static int android_vibrator_intialize(void)
 {
 #if 0
 	/* Enable Vibraror LDO Power */
@@ -98,18 +96,20 @@ static int android_vibrator_force_set(int nForce)
 	else {
 #ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
 		/* 
-		 * overdriving the output voltage 2.9V (after 10 msec) --> 2.4V 
+		 * overdriving the output voltage 2.9V (after 10 msec) --> 2.0V 
 		 * ignore the high amp gain from Android platform for avoiding the demage of Motor.
 		 * the following value is optimized to C710 model.
 		 * In case of other models, the output volatge and motor ic spec. should be checked
 		*/
+		int time = atomic_read(&vibe_ftime);
 		vibe_data->pwm_set(1, 128);
 		vibe_data->power_set(1);
 		msleep(10);
 		if (nForce < 115)
-			vibe_data->pwn_set(1, nForce);
+			vibe_data->pwm_set(1, nForce);
 		else
-			vibe_data->pwn_set(1, 115);
+			vibe_data->pwm_set(1, 115);
+
 #else
 		vibe_data->pwm_set(1, nForce);
 		vibe_data->power_set(1); /* should be checked for vibrator response time */
@@ -167,8 +167,7 @@ static enum hrtimer_restart vibrator_timer_func(struct hrtimer *timer)
 
 static int vibrator_get_time(struct timed_output_dev *dev)
 {
-	struct timed_vibrator_data *data = container_of(dev, 
-			struct timed_vibrator_data, dev);
+	struct timed_vibrator_data *data = container_of(dev, struct timed_vibrator_data, dev);
 
 	if (hrtimer_active(&data->timer)) {
 		ktime_t r = hrtimer_get_remaining(&data->timer);
@@ -179,8 +178,7 @@ static int vibrator_get_time(struct timed_output_dev *dev)
 
 static void vibrator_enable(struct timed_output_dev *dev, int value)
 {
-	//struct timed_vibrator_data *data = container_of(dev, 
-	//		struct timed_vibrator_data, dev);
+	//struct timed_vibrator_data *data = container_of(dev, struct timed_vibrator_data, dev);
 	struct timed_vibrator_data *data = (void *)NULL;
 	unsigned long	flags;
 #ifdef CONFIG_VIB_USE_HIGH_VOL_OVERDRIVE
@@ -203,6 +201,7 @@ static void vibrator_enable(struct timed_output_dev *dev, int value)
 
 	gain = atomic_read(&vibe_gain);
 
+	//printk("LGE:%s time = %d msec\n", __FUNCTION__, value);
 	spin_lock_irqsave(&data->lock, flags);
 
 	hrtimer_cancel(&data->timer);
@@ -244,26 +243,24 @@ struct timed_vibrator_data android_vibrator_data = {
 	.max_timeout = 30000, /* max time for vibrator enable 30 sec. */
 };
 
-static ssize_t vibrator_amp_show(struct device *dev, 
-		struct device_attribute *attr, char *buf)
+static ssize_t vibrator_amp_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	int gain = atomic_read(&vibe_gain);
-	return sprintf(buf, "%d\n", gain);
+    int gain = atomic_read(&vibe_gain);
+    return sprintf(buf, "%d\n", gain);
 }
 
-static ssize_t vibrator_amp_store(struct device *dev, 
-		struct device_attribute *attr, const char *buf, size_t size)
+static ssize_t vibrator_amp_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
-	int gain;
+    int gain;
 
-	sscanf(buf, "%d", &gain);
+    sscanf(buf, "%d", &gain);
 	if (gain > 128 || gain < -128) {
 		printk(KERN_ERR "%s invalid value: should be -128 ~ +128\n", __FUNCTION__);
 		return -EINVAL;
 	}
-	atomic_set(&vibe_gain, gain);
+    atomic_set(&vibe_gain, gain);
 
-	return size;
+    return size;
 }
 static DEVICE_ATTR(amp, S_IRUGO | S_IWUSR, vibrator_amp_show, vibrator_amp_store);
 
@@ -272,9 +269,9 @@ static int android_vibrator_probe(struct platform_device *pdev)
 	int ret = 0;
 
 	vibe_data = (struct android_vibrator_platform_data *)pdev->dev.platform_data;
-	atomic_set(&vibe_gain, vibe_data->amp_value);
+	atomic_set(&vibe_gain,vibe_data->amp_value);
 
-	if (android_vibrator_initialize() < 0) {
+	if (android_vibrator_intialize() < 0) {
 		printk(KERN_ERR "Android Vibrator Initialization was failed\n");
 		return -1;
 	}
@@ -334,7 +331,7 @@ static int android_vibrator_suspend(struct platform_device *pdev, pm_message_t s
 static int android_vibrator_resume(struct platform_device *pdev)
 {
 	printk(KERN_INFO "LGE: Android Vibrator Driver Resume\n");
-	android_vibrator_initialize();
+	android_vibrator_intialize();
 	return 0;
 }
 #endif
