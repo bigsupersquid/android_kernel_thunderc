@@ -105,6 +105,20 @@
 #include <asm/system.h>
 #include <linux/uaccess.h>
 
+/*LGE_CHANGE_S [bluerti@lge.com] 2009-07-10, Make a New API for Error Handler > */
+#define FB_MAX 32
+extern struct fb_info *registered_fb[FB_MAX];
+#define	LGE_ERROR_MAX_ROW				50 //<[blue.park@lge.com] Aloha_G = 400*800
+#define	LGE_ERROR_MAX_COLUMN			80
+extern void fbcon_putcs_byLGE(struct vc_data *vc, const unsigned short *s,
+			int count, int ypos, int xpos);
+extern void fbcon_update_byLGE(struct vc_data *vc);
+#define ARM9_CRASH_STRING 		"[ B l u e   E r r o r   H a n d l e r   V 1 . 2 ]   A r m 9   C r a s h ! !   "
+#define ARM11_CRASH_STRING  	"[ B l u e   E r r o r   H a n d l e r   V 1 . 2 ]   A r m 1 1   C r a s h ! ! "
+#define ANDROID_CRASH_STRING 	"[ B l u e   E r r o r   H a n d l e r   V 1 . 2 ]   A n d r o i d   C r a s h ! ! "
+#define RAMDUMP_STRING 			"[ P r e s s   V o l u m e   u p   k e y ]   T o   g e t   R a m d u m p ! !                                                                                       "
+#define RESET_STRING			"[ P r e s s   V o l u m e   d o w n   k e y ]   R e b o o t & s a v e l o g ! !                                                                                   "
+/*LGE_CHANGE_E [bluerti@lge.com] 2009-07-10, Make a New API for Error Handler > */
 #define MAX_NR_CON_DRIVER 16
 
 #define CON_DRIVER_FLAG_MODULE 1
@@ -161,6 +175,11 @@ static void set_palette(struct vc_data *vc);
 static int printable;		/* Is console ready for printing? */
 int default_utf8 = true;
 module_param(default_utf8, int, S_IRUGO | S_IWUSR);
+int global_cursor_default = -1;
+module_param(global_cursor_default, int, S_IRUGO | S_IWUSR);
+
+static int cur_default = CUR_DEFAULT;
+module_param(cur_default, int, S_IRUGO | S_IWUSR);
 
 /*
  * ignore_poke: don't unblank the screen when things are typed.  This is
@@ -182,12 +201,10 @@ static DECLARE_WORK(console_work, console_callback);
  * fg_console is the current virtual console,
  * last_console is the last used one,
  * want_console is the console we want to switch to,
- * kmsg_redirect is the console for kernel messages,
  */
 int fg_console;
 int last_console;
 int want_console = -1;
-int kmsg_redirect;
 
 /*
  * For each existing display, we have a pointer to console currently visible
@@ -321,6 +338,39 @@ static void scrdown(struct vc_data *vc, unsigned int t, unsigned int b, int nr)
 	scr_memmovew(s + step, s, (b - t - nr) * vc->vc_size_row);
 	scr_memsetw(s, vc->vc_video_erase_char, 2 * step);
 }
+/*LGE_CHANGE_S [blue.park@lge.com] 2010-04-01, Make a New API for Error Handler > */
+void display_errorinfo_byLGE(int crash_side, unsigned short * buf, int count)
+{
+	extern void expand_char_to_shrt(char * message,unsigned short *buffer);
+	extern int msm_fb_refesh_enabled;
+	struct vc_data *vc;
+	int i; 
+	unsigned short * temp = buf;
+	vc = vc_cons[0].d;
+
+	if(crash_side == 0) {
+		fbcon_putcs_byLGE (vc,(unsigned short *)ARM9_CRASH_STRING,LGE_ERROR_MAX_COLUMN,0,0);
+	} else if (crash_side == 1) { 
+		fbcon_putcs_byLGE (vc,(unsigned short *)ARM11_CRASH_STRING,LGE_ERROR_MAX_COLUMN,0,0);
+	} else if (crash_side == 2 || crash_side == 3) {
+		fbcon_putcs_byLGE (vc,(unsigned short *)ANDROID_CRASH_STRING,LGE_ERROR_MAX_COLUMN,0,0);
+	}
+	fbcon_putcs_byLGE(vc,(unsigned short *)RAMDUMP_STRING, LGE_ERROR_MAX_COLUMN,1,0);
+	fbcon_putcs_byLGE(vc,(unsigned short *)RESET_STRING,LGE_ERROR_MAX_COLUMN,2,0);
+
+	temp+=LGE_ERROR_MAX_COLUMN;
+
+	
+	for (i=0; i< LGE_ERROR_MAX_ROW-1; i++) {
+			fbcon_putcs_byLGE(vc, temp, LGE_ERROR_MAX_COLUMN , i+3,0);
+			temp += LGE_ERROR_MAX_COLUMN;
+		}
+
+	fbcon_update_byLGE(vc);
+	msm_fb_refesh_enabled = 0;	// Block another Refresh
+
+}
+/*LGE_CHANGE_E [blue.park@lge.com] 2010-04-01, Make a New API for Error Handler > */
 
 static void do_update_region(struct vc_data *vc, unsigned long start, int count)
 {
@@ -775,6 +825,12 @@ int vc_allocate(unsigned int currcons)	/* return 0 on success */
 		vc_cons[currcons].d = NULL;
 		return -ENOMEM;
 	    }
+
+	    /* If no drivers have overridden us and the user didn't pass a
+	       boot option, default to displaying the cursor */
+	    if (global_cursor_default == -1)
+		    global_cursor_default = 1;
+
 	    vc_init(vc, vc->vc_rows, vc->vc_cols, 1);
 	    vcs_make_sysfs(currcons);
 	    atomic_notifier_call_chain(&vt_notifier_list, VT_ALLOCATE, &param);
@@ -812,7 +868,7 @@ static inline int resize_screen(struct vc_data *vc, int width, int height,
  *
  *	Resize a virtual console, clipping according to the actual constraints.
  *	If the caller passes a tty structure then update the termios winsize
- *	information and perform any neccessary signal handling.
+ *	information and perform any necessary signal handling.
  *
  *	Caller must hold the console semaphore. Takes the termios mutex and
  *	ctrl_lock of the tty IFF a tty is passed.
@@ -1616,7 +1672,7 @@ static void reset_terminal(struct vc_data *vc, int do_clear)
 	vc->vc_decscnm		= 0;
 	vc->vc_decom		= 0;
 	vc->vc_decawm		= 1;
-	vc->vc_deccm		= 1;
+	vc->vc_deccm		= global_cursor_default;
 	vc->vc_decim		= 0;
 
 	set_kbd(vc, decarm);
@@ -1630,7 +1686,7 @@ static void reset_terminal(struct vc_data *vc, int do_clear)
 	/* do not do set_leds here because this causes an endless tasklet loop
 	   when the keyboard hasn't been initialized yet */
 
-	vc->vc_cursor_type = CUR_DEFAULT;
+	vc->vc_cursor_type = cur_default;
 	vc->vc_complement_mask = vc->vc_s_complement_mask;
 
 	default_attr(vc);
@@ -1832,7 +1888,7 @@ static void do_con_trol(struct tty_struct *tty, struct vc_data *vc, int c)
 				if (vc->vc_par[0])
 					vc->vc_cursor_type = vc->vc_par[0] | (vc->vc_par[1] << 8) | (vc->vc_par[2] << 16);
 				else
-					vc->vc_cursor_type = CUR_DEFAULT;
+					vc->vc_cursor_type = cur_default;
 				return;
 			}
 			break;
@@ -2110,8 +2166,6 @@ static int do_con_write(struct tty_struct *tty, const unsigned char *buf, int co
 	uint8_t inverse;
 	uint8_t width;
 	u16 himask, charmask;
-	const unsigned char *orig_buf = NULL;
-	int orig_count;
 
 	if (in_interrupt())
 		return count;
@@ -2133,8 +2187,6 @@ static int do_con_write(struct tty_struct *tty, const unsigned char *buf, int co
 	    release_console_sem();
 	    return 0;
 	}
-	orig_buf = buf;
-	orig_count = count;
 
 	himask = vc->vc_hi_font_mask;
 	charmask = himask ? 0x1ff : 0xff;
@@ -2426,6 +2478,37 @@ struct tty_driver *console_driver;
 
 #ifdef CONFIG_VT_CONSOLE
 
+/**
+ * vt_kmsg_redirect() - Sets/gets the kernel message console
+ * @new:	The new virtual terminal number or -1 if the console should stay
+ * 		unchanged
+ *
+ * By default, the kernel messages are always printed on the current virtual
+ * console. However, the user may modify that default with the
+ * TIOCL_SETKMSGREDIRECT ioctl call.
+ *
+ * This function sets the kernel message console to be @new. It returns the old
+ * virtual console number. The virtual terminal number 0 (both as parameter and
+ * return value) means no redirection (i.e. always printed on the currently
+ * active console).
+ *
+ * The parameter -1 means that only the current console is returned, but the
+ * value is not modified. You may use the macro vt_get_kmsg_redirect() in that
+ * case to make the code more understandable.
+ *
+ * When the kernel is compiled without CONFIG_VT_CONSOLE, this function ignores
+ * the parameter and always returns 0.
+ */
+int vt_kmsg_redirect(int new)
+{
+	static int kmsg_con;
+
+	if (new != -1)
+		return xchg(&kmsg_con, new);
+	else
+		return kmsg_con;
+}
+
 /*
  *	Console on virtual terminal
  *
@@ -2440,6 +2523,7 @@ static void vt_console_print(struct console *co, const char *b, unsigned count)
 	const ushort *start;
 	ushort cnt = 0;
 	ushort myx;
+	int kmsg_console;
 
 	/* console busy or not yet initialized */
 	if (!printable)
@@ -2447,8 +2531,9 @@ static void vt_console_print(struct console *co, const char *b, unsigned count)
 	if (!spin_trylock(&printing_lock))
 		return;
 
-	if (kmsg_redirect && vc_cons_allocated(kmsg_redirect - 1))
-		vc = vc_cons[kmsg_redirect - 1].d;
+	kmsg_console = vt_get_kmsg_redirect();
+	if (kmsg_console && vc_cons_allocated(kmsg_console - 1))
+		vc = vc_cons[kmsg_console - 1].d;
 
 	/* read `x' only after setting currcons properly (otherwise
 	   the `x' macro will read the x of the foreground console). */
@@ -2605,7 +2690,7 @@ int tioclinux(struct tty_struct *tty, unsigned long arg)
 			ret = set_vesa_blanking(p);
 			break;
 		case TIOCL_GETKMSGREDIRECT:
-			data = kmsg_redirect;
+			data = vt_get_kmsg_redirect();
 			ret = __put_user(data, p);
 			break;
 		case TIOCL_SETKMSGREDIRECT:
@@ -2615,7 +2700,7 @@ int tioclinux(struct tty_struct *tty, unsigned long arg)
 				if (get_user(data, p+1))
 					ret = -EFAULT;
 				else
-					kmsg_redirect = data;
+					vt_kmsg_redirect(data);
 			}
 			break;
 		case TIOCL_GETFGCONSOLE:
@@ -3929,13 +4014,9 @@ static int con_font_set(struct vc_data *vc, struct console_font_op *op)
 	font.charcount = op->charcount;
 	font.height = op->height;
 	font.width = op->width;
-	font.data = kmalloc(size, GFP_KERNEL);
-	if (!font.data)
-		return -ENOMEM;
-	if (copy_from_user(font.data, op->data, size)) {
-		kfree(font.data);
-		return -EFAULT;
-	}
+	font.data = memdup_user(op->data, size);
+	if (IS_ERR(font.data))
+		return PTR_ERR(font.data);
 	acquire_console_sem();
 	if (vc->vc_sw->con_font_set)
 		rc = vc->vc_sw->con_font_set(vc, &font, op->flags);
@@ -4078,6 +4159,7 @@ EXPORT_SYMBOL(fg_console);
 EXPORT_SYMBOL(console_blank_hook);
 EXPORT_SYMBOL(console_blanked);
 EXPORT_SYMBOL(vc_cons);
+EXPORT_SYMBOL(global_cursor_default);
 #ifndef VT_SINGLE_DRIVER
 EXPORT_SYMBOL(take_over_console);
 EXPORT_SYMBOL(give_up_console);
