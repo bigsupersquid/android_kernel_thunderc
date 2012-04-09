@@ -467,7 +467,7 @@ int __bitmap_parse(const char *buf, unsigned int buflen,
 			if (chunk & ~((1UL << (CHUNKSZ - 4)) - 1))
 				return -EOVERFLOW;
 
-			chunk = (chunk << 4) | hex_to_bin(c);
+			chunk = (chunk << 4) | unhex(c);
 			ndigits++; totaldigits++;
 		}
 		if (ndigits == 0)

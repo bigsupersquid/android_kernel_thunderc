@@ -1472,16 +1472,16 @@ static int cache_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		r = ENOMEM;
 		goto bad;
 	}
-
+/*
 	r = dm_get_device(ti, argv[0],
-			  dm_table_get_mode(ti->table), &dmc->src_dev);
+			  dm_table_get_mode(ti->table), &dmc->src_dev);*/
 	if (r) {
 		ti->error = "dm-cache: Source device lookup failed";
 		goto bad1;
 	}
 
-	r = dm_get_device(ti, argv[1],
-			  dm_table_get_mode(ti->table), &dmc->cache_dev);
+/*	r = dm_get_device(ti, argv[1],
+			  dm_table_get_mode(ti->table), &dmc->cache_dev);*/
 	if (r) {
 		ti->error = "dm-cache: Cache device lookup failed";
 		goto bad2;
