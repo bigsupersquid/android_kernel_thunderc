@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
-# Sun May 20 09:49:57 2012
+# Sun May 20 12:21:12 2012
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -789,6 +789,7 @@ CONFIG_BT_HCIUART=y
 CONFIG_BT_HCIUART_H4=y
 CONFIG_BT_HCIUART_BCSP=y
 # CONFIG_BT_HCIUART_LL is not set
+CONFIG_BT_HCIUART_IBS=y
 CONFIG_BT_MSM_SLEEP=y
 # CONFIG_BT_HCIVHCI is not set
 # CONFIG_BT_MRVL is not set
