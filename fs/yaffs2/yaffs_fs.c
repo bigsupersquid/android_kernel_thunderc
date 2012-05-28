@@ -120,11 +120,7 @@ static uint32_t YCALCBLOCKS(uint64_t partition_size, uint32_t block_size)
 
 unsigned int yaffs_traceMask = YAFFS_TRACE_BAD_BLOCKS;
 unsigned int yaffs_wr_attempts = YAFFS_WR_ATTEMPTS;
-#if defined(CONFIG_LGE_YAFFS_AUTO_CHECKPOINT_PATCH)
-unsigned int yaffs_auto_checkpoint = 2;
-#else /* qualcomm or google */
 unsigned int yaffs_auto_checkpoint = 1;
-#endif
 
 /* Module Parameters */
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 5, 0))
@@ -166,7 +162,6 @@ static struct inode *yaffs_iget(struct super_block *sb, unsigned long ino);
 #else
 #define yaffs_SuperToDevice(sb)	((yaffs_Device *)sb->u.generic_sbp)
 #endif
-
 
 #define update_dir_time(dir) do {\
 			(dir)->i_ctime = (dir)->i_mtime = CURRENT_TIME; \
@@ -488,7 +483,7 @@ static void yaffs_RemoveObjectCallback(yaffs_Object *obj)
          ylist_for_each(i, search_contexts) {
                 if (i) {
                         sc = ylist_entry(i, struct yaffs_SearchContext,others);
-                        if(sc && sc->nextReturn == obj)
+                        if(sc->nextReturn == obj)
                                 yaffs_SearchAdvance(sc);
                 }
 	}
@@ -1937,6 +1932,8 @@ typedef struct {
 	int no_cache;
 	int empty_lost_and_found_overridden;
 	int empty_lost_and_found;
+	int tags_ecc_on;
+	int tags_ecc_off;
 } yaffs_options;
 
 #define MAX_OPT_LEN 20
@@ -1980,6 +1977,10 @@ static int yaffs_parse_options(yaffs_options *options, const char *options_str)
 		} else if (!strcmp(cur_opt, "empty-lost-and-found-enable")) {
 			options->empty_lost_and_found = 1;
 			options->empty_lost_and_found_overridden = 1;
+		} else if (!strcmp(cur_opt, "tags-ecc-on")) {
+			options->tags_ecc_on = 1;
+		} else if (!strcmp(cur_opt, "tags-ecc-off")) {
+			options->tags_ecc_off = 1;
 		} else {
 			printk(KERN_INFO "yaffs: Bad mount option \"%s\"\n",
 					cur_opt);
@@ -2193,6 +2194,11 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 	dev->nReservedBlocks = 5;
 	dev->nShortOpCaches = (options.no_cache) ? 0 : 10;
 	dev->inbandTags = options.inband_tags;
+#ifdef CONFIG_YAFFS_DOES_TAGS_ECC
+	dev->doesTagsEcc = !options.tags_ecc_off;
+#else
+	dev->doesTagsEcc = options.tags_ecc_on;
+#endif
 
 	/* ... and the functions. */
 	if (yaffsVersion == 2) {
@@ -2436,6 +2442,7 @@ static char *yaffs_dump_dev(char *buf, yaffs_Device * dev)
 	buf += sprintf(buf, "useNANDECC......... %d\n", dev->useNANDECC);
 	buf += sprintf(buf, "isYaffs2........... %d\n", dev->isYaffs2);
 	buf += sprintf(buf, "inbandTags......... %d\n", dev->inbandTags);
+	buf += sprintf(buf, "doesTagsEcc........ %d\n", dev->doesTagsEcc);
 
 	return buf;
 }
