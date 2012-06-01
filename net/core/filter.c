@@ -126,7 +126,7 @@ unsigned int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int 
 	 */
 	for (pc = 0; pc < flen; pc++) {
 		const struct sock_filter *fentry = &filter[pc];
-		u32 f_k = f_k;
+		u32 f_k = fentry->k;
 
 		switch (fentry->code) {
 		case BPF_ALU|BPF_ADD|BPF_X:
