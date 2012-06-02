@@ -2832,6 +2832,11 @@ static inline int l2cap_config_rsp(struct l2cap_conn *conn, struct l2cap_cmd_hdr
 		if (l2cap_pi(sk)->num_conf_rsp <= L2CAP_CONF_MAX_CONF_RSP) {
 			int len = cmd->len - sizeof(*rsp);
 			char req[64];
+			
+			if (len > sizeof(req) - sizeof(struct l2cap_conf_req)) {
+				l2cap_send_disconn_req(conn, sk);
+				goto done;
+			}
 
 			/* throw out any old stored conf requests */
 			result = L2CAP_CONF_SUCCESS;
