@@ -2,9 +2,9 @@
  *
  *  Bluetooth HCI UART driver
  *
- *  Copyright (C) 2000-2001  Qualcomm Incorporated
  *  Copyright (C) 2002-2003  Maxim Krasnyansky <maxk@qualcomm.com>
  *  Copyright (C) 2004-2005  Marcel Holtmann <marcel@holtmann.org>
+ *  Copyright (c) 2000-2001, 2010, Code Aurora Forum. All rights reserved.
  *
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -33,7 +33,7 @@
 #define HCIUARTGETDEVICE	_IOR('U', 202, int)
 
 /* UART protocols */
-#define HCI_UART_MAX_PROTO	5
+#define HCI_UART_MAX_PROTO	6
 
 #define HCI_UART_H4	0
 #define HCI_UART_BCSP	1
@@ -67,8 +67,9 @@ struct hci_uart {
 	spinlock_t		rx_lock;
 };
 
-/* HCI_UART flag bits */
-#define HCI_UART_PROTO_SET	0
+/* HCI_UART proto flag bits */
+#define HCI_UART_PROTO_SET			0
+#define HCI_UART_PROTO_SET_IN_PROGRESS		1
 
 /* TX states  */
 #define HCI_UART_SENDING	1

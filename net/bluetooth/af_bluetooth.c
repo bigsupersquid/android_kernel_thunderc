@@ -138,22 +138,22 @@ EXPORT_SYMBOL(bt_sock_unregister);
 #ifdef CONFIG_ANDROID_PARANOID_NETWORK
 static inline int current_has_bt_admin(void)
 {
-  return (!current_euid() || in_egroup_p(AID_NET_BT_ADMIN));
+	return (!current_euid() || in_egroup_p(AID_NET_BT_ADMIN));
 }
 
 static inline int current_has_bt(void)
 {
-  return (current_has_bt_admin() || in_egroup_p(AID_NET_BT));
+	return (current_has_bt_admin() || in_egroup_p(AID_NET_BT));
 }
 # else
 static inline int current_has_bt_admin(void)
 {
-  return 1;
+	return 1;
 }
 
 static inline int current_has_bt(void)
 {
-  return 1;
+	return 1;
 }
 #endif
 
@@ -162,11 +162,11 @@ static int bt_sock_create(struct net *net, struct socket *sock, int proto)
 	int err;
 
 	if (proto == BTPROTO_RFCOMM || proto == BTPROTO_SCO ||
-	    proto == BTPROTO_L2CAP) {
-	if (!current_has_bt())
-	    return -EPERM;
+			proto == BTPROTO_L2CAP) {
+		if (!current_has_bt())
+			return -EPERM;
 	} else if (!current_has_bt_admin())
-	    return -EPERM;
+		return -EPERM;
 
 	if (net != &init_net)
 		return -EAFNOSUPPORT;
