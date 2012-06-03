@@ -41,7 +41,7 @@ static inline int iov_from_user_compat_to_kern(struct iovec *kiov,
 
 		if (get_user(len, &uiov32->iov_len) ||
 		   get_user(buf, &uiov32->iov_base))
-			tot_len = -EFAULT;
+			return -EFAULT;
 
 		if (len > INT_MAX - tot_len)
 			len = INT_MAX - tot_len;
