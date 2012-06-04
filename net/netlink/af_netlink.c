@@ -1379,8 +1379,6 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
 
 #ifdef CONFIG_COMPAT_NETLINK_MESSAGES
 	if (unlikely(skb_shinfo(skb)->frag_list)) {
-		bool need_compat = !!(flags & MSG_CMSG_COMPAT);
-
 		/*
 		 * If this skb has a frag_list, then here that means that we
 		 * will have to use the frag_list skb's data for compat tasks
