@@ -120,7 +120,7 @@ static void __exit_signal(struct task_struct *tsk)
 		sig->inblock += task_io_get_inblock(tsk);
 		sig->oublock += task_io_get_oublock(tsk);
 		task_io_accounting_add(&sig->ioac, &tsk->ioac);
-		sig->sum_sched_runtime += tsk->se.sum_exec_runtime;
+		sig->sum_sched_runtime += tsk_seruntime(tsk);
 		sig = NULL; /* Marker for below. */
 	}
 
@@ -1233,11 +1233,11 @@ static int wait_task_zombie(struct wait_opts *wo, struct task_struct *p)
 		psig->cutime =
 			cputime_add(psig->cutime,
 			cputime_add(tgutime,
-			            sig->cutime));
+					sig->cutime));
 		psig->cstime =
 			cputime_add(psig->cstime,
 			cputime_add(tgstime,
-			            sig->cstime));
+					sig->cstime));
 		psig->cgtime =
 			cputime_add(psig->cgtime,
 			cputime_add(p->gtime,
