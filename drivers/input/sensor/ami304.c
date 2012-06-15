@@ -224,16 +224,24 @@ static int AMI304_Chipset_Init(int mode, int chipset)
 	i2c_master_send(ami304_i2c_client, databuf, 2);
 	
 	databuf[0] = AMI304_REG_CTRL4;	
-	if( chipset == AMI304_CHIPSET ) { //AMI304
-		ctrl4[1]   = ctrl4[1] & AMI304_CTRL4_COMPASS_MODE; 	 //0x5D
-	}
-	else {	//AMI306
-		ctrl4[1]   = ctrl4[1] | AMI306_CTRL4_HIGHSPEED_MODE; //0x5D		
-	}	
+
+#if 0	// //AMI304  //AMI304_CHIPSET
+
+//		ctrl4[1]   = ctrl4[1] & AMI304_CTRL4_COMPASS_MODE; 	 //0x5D
+		ctrl4[0] = 0x00;
+		ctrl4[1] = 0x00;
+
+#else	//AMI306	//AMI306_CHIPSET
+
+//		ctrl4[1]   = ctrl4[1] | AMI306_CTRL4_HIGHSPEED_MODE; //0x5D
+		ctrl4[0] = 0x7e;
+		ctrl4[1] = 0xa0;
+#endif
+
 	databuf[1] = ctrl4[0];
 	databuf[2] = ctrl4[1];
-	i2c_master_send(ami304_i2c_client, databuf, 3);				
-	
+	i2c_master_send(ami304_i2c_client, databuf, 3);
+
 	return 0;
 }
 
@@ -276,6 +284,8 @@ static int AMI304_ReadChipInfo(char *buf, int bufsize)
 static int AMI304_WIA(char *wia, int bufsize)
 {
 	char cmd;
+	int check[2];
+	int again_cnt = 0;
 	unsigned char databuf[10];
 
 	if ((!wia)||(bufsize<=30))
@@ -287,9 +297,16 @@ static int AMI304_WIA(char *wia, int bufsize)
 	}
 
 	cmd = AMI304_REG_WIA;
-	i2c_master_send(ami304_i2c_client, &cmd, 1);	
-	udelay(20);
-	i2c_master_recv(ami304_i2c_client, &(databuf[0]), 1);	
+	again_cnt = 3;
+again_i2c:
+	check[0] = i2c_master_send(ami304_i2c_client, &cmd, 1);
+	check[1] = i2c_master_recv(ami304_i2c_client, &(databuf[0]), 1);
+
+	if(((check[0] <= 0) || (check[1] <= 0)) && (again_cnt > 0))
+	{
+		again_cnt--;
+		goto again_i2c;
+	}
 	
 	sprintf(wia, "%02x", databuf[0]);
 	
@@ -527,7 +544,25 @@ static ssize_t show_chipinfo_value(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	char strbuf[AMI304_BUFSIZE];
+	int mx, my, mz;
+	int mxh, mxl, myh, myl, mzh, mzl;
+	
 	AMI304_ReadChipInfo(strbuf, AMI304_BUFSIZE);
+
+	mx = my = mz = 0;
+	mxh = mxl = myh = myl = mzh = mzl = 0;
+
+	sscanf(strbuf, "%x %x %x %x %x %x", &mxl, &mxh, &myl, &myh, &mzl, &mzh);
+	mx = mxh << 8 | mxl;
+	my = myh << 8 | myl;
+	mz = mzh << 8 | mzl;
+	if (mx>32768)  mx = mx-65536;//check negative value
+	if (my>32768)  my = my-65536;//check negative value
+	if (mz>32768)  mz = mz-65536;//check negative value
+
+	memset(strbuf, 0x00, AMI304_BUFSIZE);
+	sprintf(strbuf, "%d %d %d", mx, my, mz);
+
 	return sprintf(buf, "%s\n", strbuf);
 }
 
@@ -583,10 +618,31 @@ static ssize_t show_mode_value(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	int mode=0;
+	u8 regaddr;
+	u8 ctrl1, ctrl2, ctrl3;
+	unsigned char ctrl4[2];
+
 	read_lock(&ami304_data.lock);
 	mode = ami304_data.mode;
 	read_unlock(&ami304_data.lock);
-	return sprintf(buf, "%d\n", mode);
+
+	regaddr = AMI304_REG_CTRL1;
+	i2c_master_send(ami304_i2c_client, &regaddr, 1);
+	i2c_master_recv(ami304_i2c_client, &ctrl1, 1);
+
+	regaddr = AMI304_REG_CTRL2;
+	i2c_master_send(ami304_i2c_client, &regaddr, 1);
+	i2c_master_recv(ami304_i2c_client, &ctrl2, 1);
+
+	regaddr = AMI304_REG_CTRL3;
+	i2c_master_send(ami304_i2c_client, &regaddr, 1);
+	i2c_master_recv(ami304_i2c_client, &ctrl3, 1);
+
+	regaddr = AMI304_REG_CTRL4;
+	i2c_master_send(ami304_i2c_client, &regaddr, 1);
+	i2c_master_recv(ami304_i2c_client, ctrl4, 2);	
+
+	return sprintf(buf, "%d, %d/%d/%d/%d/%d \n", mode, ctrl1, ctrl2, ctrl3, ctrl4[0], ctrl4[1]);
 }
 
 static ssize_t store_mode_value(struct device *dev, 
@@ -618,6 +674,32 @@ static ssize_t show_roll_value(struct device *dev,
 	return sprintf(buf, "%d\n", ami304mid_data.roll);
 }
 
+static ssize_t show_enable_value(struct device *dev, 
+		struct device_attribute *attr, char *buf)
+{
+	char strbuf[AMI304_BUFSIZE];
+	sprintf(strbuf, "%d", atomic_read(&ami304_report_enabled));
+	return sprintf(buf, "%s\n", strbuf);
+}
+
+static ssize_t store_enable_value(struct device *dev, 
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int mode=0;
+	sscanf(buf, "%d", &mode);
+	if (mode) {
+			ami304_resume(dev);
+			atomic_set(&ami304_report_enabled, 1);
+			printk(KERN_INFO "Compass_Power On\n");
+	}
+	else {
+			ami304_suspend(dev);
+			atomic_set(&ami304_report_enabled, 0);
+			printk(KERN_INFO "Compass_Power Off\n");
+	}
+	return 0;
+}
+
 static DEVICE_ATTR(chipinfo, S_IRUGO, show_chipinfo_value, NULL);
 static DEVICE_ATTR(sensordata, S_IRUGO, show_sensordata_value, NULL);
 static DEVICE_ATTR(posturedata, S_IRUGO, show_posturedata_value, NULL);
@@ -628,6 +710,7 @@ static DEVICE_ATTR(mode, S_IRUGO | S_IWUSR, show_mode_value, store_mode_value );
 static DEVICE_ATTR(wia, S_IRUGO, show_wia_value, NULL);
 static DEVICE_ATTR(pitch, S_IRUGO | S_IWUSR, show_pitch_value, NULL);
 static DEVICE_ATTR(roll, S_IRUGO | S_IWUSR, show_roll_value, NULL);
+static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, show_enable_value, store_enable_value);
 
 static struct attribute *ami304_attributes[] = {
 	&dev_attr_chipinfo.attr,
@@ -641,11 +724,12 @@ static struct attribute *ami304_attributes[] = {
 	/* Test mode attribute */
 	&dev_attr_pitch.attr,
 	&dev_attr_roll.attr,
+	&dev_attr_enable.attr,
 	NULL,
 };
 
 static struct attribute_group ami304_attribute_group = {
-	.attrs = ami304_attributes
+	.attrs = ami304_attributes,
 };
 
 static int ami304_open(struct inode *inode, struct file *file)
@@ -1461,6 +1545,7 @@ static int __devinit ami304_probe(struct i2c_client *client,
 	ecom_pdata = ami304_i2c_client->dev.platform_data;
 	ecom_pdata->power(1);
 
+	mdelay(1);
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 	ami304_sensor_early_suspend.suspend = ami304_early_suspend;
 	ami304_sensor_early_suspend.resume = ami304_late_resume;
