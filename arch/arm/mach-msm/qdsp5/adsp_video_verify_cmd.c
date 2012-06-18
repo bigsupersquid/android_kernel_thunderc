@@ -52,15 +52,13 @@ static int pmem_fixup_high_low(unsigned short *high,
 	phys_size = (unsigned long)high_low_short_to_ptr(size_high, size_low);
 	MM_DBG("virt %x %x\n", (unsigned int)phys_addr,
 			(unsigned int)phys_size);
-	if (phys_addr) {
-		if (adsp_pmem_fixup_kvaddr(module, &phys_addr,
-			 &kvaddr, phys_size, filp, offset)) {
-			MM_ERR("ah%x al%x sh%x sl%x addr %x size %x\n",
-					*high, *low, size_high,
-					size_low, (unsigned int)phys_addr,
-					(unsigned int)phys_size);
-			return -EINVAL;
-		}
+	if (adsp_pmem_fixup_kvaddr(module, &phys_addr, &kvaddr, phys_size,
+	              filp, offset)) {
+		MM_ERR("ah%x al%x sh%x sl%x addr %x size %x\n",
+			*high, *low, size_high,
+			size_low, (unsigned int)phys_addr,
+			(unsigned int)phys_size);
+		return -1;
 	}
 	ptr_to_high_low_short(phys_addr, high, low);
 	MM_DBG("phys %x %x\n", (unsigned int)phys_addr,
@@ -161,30 +159,23 @@ static int verify_vdec_pkt_cmd(struct msm_adsp_module *module,
 			      &frame_buffer_size_high,
 			      &frame_buffer_size_low);
 	for (i = 0; i < num_addr; i++) {
-		if (frame_buffer_high && frame_buffer_low) {
-			if (pmem_fixup_high_low(frame_buffer_high,
-						frame_buffer_low,
-						frame_buffer_size_high,
-						frame_buffer_size_low,
-						module,
-						NULL, NULL, NULL, NULL))
-				return -EINVAL;
-	   }
+		if (pmem_fixup_high_low(frame_buffer_high, frame_buffer_low,
+					frame_buffer_size_high,
+					frame_buffer_size_low,
+					module,
+					NULL, NULL, NULL, NULL))
+			return -1;
 		frame_buffer_high += 2;
 		frame_buffer_low += 2;
 	}
 	/* Patch the output buffer. */
 	frame_buffer_high += 2*skip;
 	frame_buffer_low += 2*skip;
-	if (frame_buffer_high && frame_buffer_low) {
-		if (pmem_fixup_high_low(frame_buffer_high,
-					frame_buffer_low,
-					frame_buffer_size_high,
-					frame_buffer_size_low,
-					module,
-					NULL, NULL, NULL, NULL))
-			return -EINVAL;
-	}
+	if (pmem_fixup_high_low(frame_buffer_high, frame_buffer_low,
+				frame_buffer_size_high,
+				frame_buffer_size_low, module, NULL, NULL,
+				NULL, NULL))
+		return -1;
 	if (filp) {
 		pmem_addr.vaddr = subframe_pkt_addr;
 		pmem_addr.length = ((subframe_pkt_size + 31) & (~31)) + 32;
